@@ -88,7 +88,7 @@ def motorbike_mech4(t, v, r, rho, cd, jr, area, m, p_tyre, motor_torque, n2, n1,
     return r / jr * (torque - torque_air - torque_gradient - torque_roll)  # w=v/r; so dv/dt=r*dw/dt
 
 #@jit
-def motorbike_mech2(t, v, r, rho, cd, jr, area, m, p_tyre, t_mot, t_mott, n2, n1, e_chain, gradient, gradient_t):
+def motorbike_mech2(t, v, r, rho, cd, jr, area, m, p_tyre, t_mot, t_mott, n2, n1, e_chain, gradient):  #, gradient_t):
     torque = e_chain * n1 / n2 * np.interp(t, t_mott, t_mot, 0, 0)  # v=rpm*1/60*n2/n1*2*np.pi*r
     g = 9.81
     # Losses *add bearing and transmission losses*
@@ -99,7 +99,7 @@ def motorbike_mech2(t, v, r, rho, cd, jr, area, m, p_tyre, t_mot, t_mott, n2, n1
         # print(t, v)
         torque_roll = r * m * g * (0.018 / p_tyre + 2.91e-06 / p_tyre * np.square(v * 3.6))
 
-    torque_gradient = r * m * g * np.interp(t, gradient_t, gradient, -1, -1)  # -1 so bike falls off cliff
+    torque_gradient = r * m * g * gradient # np.interp(t, gradient_t, gradient, -1, -1)  # -1 so bike falls off cliff
     # dydt = (T(t)-Tr-Ta)/Jr
     #  Evaluate ODE at time t
     return r / jr * (torque - torque_air - torque_gradient - torque_roll)  # w=v/r; so dv/dt=r*dw/dt
@@ -662,54 +662,64 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
         wheelie = False
 
         for time in t[1:]:
-            V.append(solver.integrate(time))
-            G.append(np.interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
-            A.append(np.interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
-            R.append(TT_Sim.constants.r - 0.12 * (1 - np.cos(A[-1])))
-            #  R[-1]=TT_Sim.constants.r
-            T_motor.append(np.interp(V[-1] / (1 / 60 * TT_Sim.N[1] / TT_Sim.N[0] * 2 * np.pi * R[-1]),
-                                     TT_Sim.motor.w / np.pi * 30, TT_Sim.motor.t, 0.001, 0.001))
-            if (time-t[0] < ramp_time) & (c != 0):   # ramp of 1.5 second
-                tramp = ramp_start+(1-ramp_start)*(time-t[0])/ramp_time
-                T_motor[-1] *= tramp
-                #  print(time, time-t[0], tramp)
+            if D[-1] < Ref_Race.Distance[corner_index[-1]]:
+                V.append(solver.integrate(time))
+                G.append(np.interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
+                A.append(np.interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
+                R.append(TT_Sim.constants.r - 0.12 * (1 - np.cos(A[-1])))
+                #  R[-1]=TT_Sim.constants.r
+                T_motor.append(np.interp(V[-1] / (1 / 60 * TT_Sim.N[1] / TT_Sim.N[0] * 2 * np.pi * R[-1]),
+                                         TT_Sim.motor.w / np.pi * 30, TT_Sim.motor.t, 0.001, 0.001))
+                if (time-t[0] < ramp_time) & (c != 0):   # ramp of 1.5 second
+                    tramp = ramp_start+(1-ramp_start)*(time-t[0])/ramp_time
+                    T_motor[-1] *= tramp
+                    #  print(time, time-t[0], tramp)
 
-            T_max = TT_Sim.N[1] / TT_Sim.N[0] * R[-1] * (TT_Sim.constants.m * 9.81 * TT_Sim.constants.b /
-                                                         TT_Sim.constants.h - np.square(V[-1]) * TT_Sim.constants.rho *
-                                                         TT_Sim.constants.cd * TT_Sim.constants.area / 2.0)
-            # print('T_max', T_max, T_motor[-1])
-            if (T_motor[-1] > T_max):
-                T_motor[-1] = T_max
-                wheelie = True
+                T_max = TT_Sim.N[1] / TT_Sim.N[0] * R[-1] * (TT_Sim.constants.m * 9.81 * TT_Sim.constants.b /
+                                                             TT_Sim.constants.h - np.square(V[-1]) * TT_Sim.constants.rho *
+                                                             TT_Sim.constants.cd * TT_Sim.constants.area / 2.0)
+                # print('T_max', T_max, T_motor[-1])
+                if (T_motor[-1] > T_max):
+                    T_motor[-1] = T_max
+                    wheelie = True
 
-            #  T_motor[-1] = Ref_Race.constants.Km * np.interp(time, Ref_Race.t, Ref_Race.Iq, -1, -1)
+                #  T_motor[-1] = Ref_Race.constants.Km * np.interp(time, Ref_Race.t, Ref_Race.Iq, -1, -1)
 
-            J_l.append(TT_Sim.constants.m * R[-1] ** 2)
-            J_r.append(2 * TT_Sim.J.wheel + J_l[-1] +
-                       np.square(TT_Sim.N[0] / TT_Sim.N[1]) * TT_Sim.J.motor)  # J ref to wheel
-            solver.set_f_params(R[-1], TT_Sim.constants.rho, TT_Sim.constants.cd, J_r[-1], TT_Sim.constants.area,
-                                TT_Sim.constants.m, TT_Sim.constants.p_tyre, T_motor[-1], TT_Sim.N[1], TT_Sim.N[0],
-                                G[-1])
-            dD = np.squeeze(V[-1] + V[-2]) * dt_a / 2.0
-            D.append(D[-1] + dD)
+                J_l.append(TT_Sim.constants.m * R[-1] ** 2)
+                J_r.append(2 * TT_Sim.J.wheel + J_l[-1] +
+                           np.square(TT_Sim.N[0] / TT_Sim.N[1]) * TT_Sim.J.motor)  # J ref to wheel
+                solver.set_f_params(R[-1], TT_Sim.constants.rho, TT_Sim.constants.cd, J_r[-1], TT_Sim.constants.area,
+                                    TT_Sim.constants.m, TT_Sim.constants.p_tyre, T_motor[-1], TT_Sim.N[1], TT_Sim.N[0],
+                                    G[-1])
+                dD = np.squeeze(V[-1] + V[-2]) * dt_a / 2.0
+                D.append(D[-1] + dD)
 
-            # dx = np.interp(D[-1], Course_map.dist, Course_map.x) - np.interp(D[-2], Course_map.dist, Course_map.x)
-            # dy = np.interp(D[-1], Course_map.dist, Course_map.y) - np.interp(D[-2], Course_map.dist, Course_map.y)
-            # H.append(np.arctan2(dx,dy))
-            H.append(np.interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
-            dH = H[-1] - H[-2]
-            if dH > np.pi / 2: dH -= np.pi
-            if dH < -np.pi / 2: dH += np.pi
-            w = dH / dt_a
-            a_lateral = V[-1] * w
-            lean.append(np.arctan(a_lateral / 9.81))
+                # dx = np.interp(D[-1], Course_map.dist, Course_map.x) - np.interp(D[-2], Course_map.dist, Course_map.x)
+                # dy = np.interp(D[-1], Course_map.dist, Course_map.y) - np.interp(D[-2], Course_map.dist, Course_map.y)
+                # H.append(np.arctan2(dx,dy))
+                H.append(np.interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
+                dH = H[-1] - H[-2]
+                if dH > np.pi / 2: dH -= np.pi
+                if dH < -np.pi / 2: dH += np.pi
+                w = dH / dt_a
+                a_lateral = V[-1] * w
+                lean.append(np.arctan(a_lateral / 9.81))
 
-            # print(D[-1], H[-1], V[-1], lean[-1]*180/np.pi, A[-1]*180/np.pi)
-            # print(time, V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
-            # todo put field weakening calculation in here? include IR drop at least. Could just calc. motor curve for two adjecent points
-            if not solver.successful():
-                print('Warning: integration not successful')
-
+                # print(D[-1], H[-1], V[-1], lean[-1]*180/np.pi, A[-1]*180/np.pi)
+                # print(time, V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
+                # todo put field weakening calculation in here? include IR drop at least. Could just calc. motor curve for two adjecent points
+                if not solver.successful():
+                    print('Warning: integration not successful')
+            else:
+                # print('Simulating too far')
+                # better way would be to look at 'time' and fill these arrays in one go, then quit loop
+                D.append(D[-1])
+                H.append(H[-1])
+                V.append(V[-1])
+                G.append(G[-1])
+                R.append(R[-1])
+                lean.append(lean[-1])
+                T_motor.append(T_motor[-1])
         if (wheelie == True):
             print('Wheelie alert!')
         #V = np.squeeze(V)
@@ -750,47 +760,53 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
         v0 = v[corner_index[-1]]
         d0 = Ref_Race.Distance[corner_index[-1]]
 
-        gradientt = t
-        gradient = np.interp(Ref_Race.Distance[corner_index], Course_map.dist, Course_map.gradient, 0,
-                             0)  # Initially gradient(t) = same as lap data
-        gradientt = np.flipud(gradientt)
+        #  gradientt = t
+        #  gradient = np.interp(Ref_Race.Distance[corner_index], Course_map.dist, Course_map.gradient, 0,
+        #                       0)  # Initially gradient(t) = same as lap data
+        #  gradientt = np.flipud(gradientt)
 
-        for a in range(0, 2):
-            # print('a=', a)
-            e_chain = 1
-            # V2 = odeint(motorbike_mech2, v0, t,
-            #            args=(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
-            #                  TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake, TBrake_t,
-            #                  TT_Sim.N[1], TT_Sim.N[0], e_chain, gradient, gradientt))
+        # print('a=', a)
+        e_chain = 1
+        # V2 = odeint(motorbike_mech2, v0, t,
+        #            args=(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
+        #                  TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake, TBrake_t,
+        #                  TT_Sim.N[1], TT_Sim.N[0], e_chain, gradient, gradientt))
 
-            V2 = []  # list to hold solutions
-            D2 = []
-            H2 = []
-            lean2 = []
-            V2.append(v0)  # Put y0 into solution
-            D2.append(d0)
-            H2.append(np.interp(D2[-1], Course_map.dist, Course_map.heading, 0, 0))
-            lean2.append(0.0)
-            # print(str(a))
-            solver = ode(motorbike_mech2)
-            # solver.set_integrator('dopri5')     #   5th order runge-kutta
-            solver.set_integrator('lsoda', with_jacobian=False)
-            solver.set_initial_value(v0, t[0])
-            solver.set_f_params(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
-                                TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake, TBrake_t,
-                                TT_Sim.N[1], TT_Sim.N[0], e_chain, gradient, gradientt)
+        V2 = []  # list to hold solutions
+        D2 = []
+        H2 = []
+        G2 = []  # course gradients
+        lean2 = []
+        V2.append(v0)  # Put y0 into solution
+        D2.append(d0)
+        G2.append(np.interp(D2[-1], Course_map.dist, Course_map.gradient, 0, 0))
+        H2.append(np.interp(D2[-1], Course_map.dist, Course_map.heading, 0, 0))
+        lean2.append(0.0)
+        # print(str(a))
+        solver = ode(motorbike_mech2)
+        # solver.set_integrator('dopri5')     #   5th order runge-kutta
+        solver.set_integrator('lsoda', with_jacobian=False)
+        solver.set_initial_value(v0, t[0])
+        solver.set_f_params(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
+                            TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake, TBrake_t,
+                            TT_Sim.N[1], TT_Sim.N[0], e_chain, G[-1])
 
-            v_max = max(V) * 1.1  # Need to stop simulating a bit after intersection, for gradient delta V
-            # print('v_max = ', v_max, 't0 = ', t[0])
-            for time in t[1:]:
-                if V2[-1] >= v_max:
-                    V2.append(v_max)  # would be neater to break the loop here, but messes up the array lengths
-                else:
-                    V2.append(solver.integrate(time))
-                    if not solver.successful():
-                        print('Warning: integration not successful')
-
+        v_max = max(V) * 1.1  # Need to stop simulating a bit after intersection, for gradient delta V
+        # print('v_max = ', v_max, 't0 = ', t[0])
+        for time in t[1:]:
+            if V2[-1] >= v_max:
+                # print('Simulating too far')
+                # better way would be to look at 'time' and fill these arrays in one go, then quit loop
+                V2.append(v_max)  # would be neater to break the loop here, but messes up the array lengths
                 D2.append(D2[-1] + np.squeeze(V2[-1] + V2[-2]) * -dt_b / 2.0)
+                H2.append(H2[-1])
+                lean2.append(lean2[-1])
+            else:
+                V2.append(solver.integrate(time))
+                if not solver.successful():
+                    print('Warning: integration not successful')
+                D2.append(D2[-1] + np.squeeze(V2[-1] + V2[-2]) * -dt_b / 2.0)
+                G2.append(np.interp(D2[-1], Course_map.dist, Course_map.gradient, 0, 0))
                 H2.append(np.interp(D2[-1], Course_map.dist, Course_map.heading, 0, 0))
                 dH = -1*(H2[-1] - H2[-2])
                 if dH > np.pi / 2: dH -= np.pi
@@ -798,8 +814,10 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
                 w = dH / dt_a
                 a_lateral = V2[-1] * w
                 lean2.append(np.arctan(a_lateral / 9.81))
-                # position.append = ...
                 # print('V2 = ', V2[j], 't = ', t[j])
+                solver.set_f_params(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
+                                    TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake,
+                                    TBrake_t, TT_Sim.N[1], TT_Sim.N[0], e_chain, G[-1])
 
 
         V2 = np.squeeze(V2)
