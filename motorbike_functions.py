@@ -5,6 +5,7 @@ from os import remove
 from scipy.integrate import odeint
 from scipy import integrate
 from scipy.integrate import ode
+from scipy import interpolate
 # from numba import jit
 
 #@jit
@@ -68,9 +69,8 @@ def motorbike_mech3(t, v, r, rho, cd, jr, area, m, p_tyre, t_motor_t, t_motor, n
 
 def motorbike_mech4(t, v, r, rho, cd, jr, area, m, p_tyre, motor_torque, n2, n1, gradient):
     motor_rpm = v / (1 / 60 * n2 / n1 * 2 * np.pi * r)
-
-    e_chain = chain_eff(n2, n1, 12.7, 1.21 / 1.27, 1, motor_rpm / 30 * np.pi, motor_torque, 0.11, 0.00508 * 1.2)[
-        0]  # Bush diameter guessed
+    e_chain = chain_eff(n2, n1, 12.7, 1.21 / 1.27, 1, motor_rpm / 30 * np.pi, motor_torque, 0.11, 0.00508 * 1.2)[0]
+    # Bush diameter guessed
     torque = e_chain * n1 / n2 * motor_torque  # v=rpm*1/60*n2/n1*2*np.pi*r
     g = 9.81
     # Losses *add bearing and transmission losses*
@@ -78,7 +78,7 @@ def motorbike_mech4(t, v, r, rho, cd, jr, area, m, p_tyre, motor_torque, n2, n1,
     if v < (165.0 / 3.6):  # If vel < 165 kph from J. Bradley, 1996
         torque_roll = r * m * g * (0.0085 + 0.018 / p_tyre + 1.59e-06 / p_tyre * np.square(v * 3.6))
     else:
-        torque_roll = r * m * g * (0.018 / p_tyre + 2.91e-06 / p_tyre * np.square(v * 3.6))
+        torque_roll = r * m * g * (0.018 + 2.91e-06 * np.square(v * 3.6)) / p_tyre
 
     torque_gradient = r * m * g * gradient  # -1 so bike falls off cliff
     # dydt = (T(t)-Tr-Ta)/Jr
@@ -124,7 +124,8 @@ def chain_eff(n2, n1, p, m_ch, cd, w_d, torque, mu_p, r_b):
     f_cf = m_ch * np.square(r_d) * np.square(w_d)  # Tension due to centripetal accel.
 
     f_chaintension = f_c + f_cf
-    if f_chaintension.max() > 20000.0:
+    #  if any(t > 20000 for t in f_chaintension): # seems slower
+    if f_chaintension > 20000:
         print('Warning, chain tension very high at ', f_chaintension, 'N, ', torque)
 
     alpha_d = 2 * np.pi / n2
@@ -143,6 +144,47 @@ def chain_eff(n2, n1, p, m_ch, cd, w_d, torque, mu_p, r_b):
 
     speed = w_d * r_d
     return [e, speed, f_chaintension]
+
+def chain_eff_only(n2, n1, p, m_ch, cd, w_d, torque, mu_p, r_b):
+    # returns chain efficiency = e, chain speed = v.
+    # N1 = driven sprocket, N2 = driving.
+    # m_ch = chain mass per unit length, kg/m
+    # p = pitch, mm
+    # Cd = Sprocket center distance, m
+    # w_d = Angular speed of N1, rad s^-1
+    # torque = driving sprocket torque, Nm
+    # mu_p = 0.11;            % Pin-bush friction co-efficient, from paper
+    # r_b = 0.00508;          % Internal diameter of chain bush
+    w_d = abs(w_d)
+    torque = abs(torque)
+
+    r_d = n2 * p / 2000 / np.pi
+    r_o = r_d * n1 / n2
+    # w_o = w_d*N1/N2;
+    f_c = torque / r_d  # Tension force
+    f_cf = m_ch * np.square(r_d) * np.square(w_d)  # Tension due to centripetal accel.
+
+    f_chaintension = f_c + f_cf
+    #  if any(t > 20000 for t in f_chaintension): # seems slower
+    if f_chaintension > 20000:
+        print('Warning, chain tension very high at ', f_chaintension, 'N, ', torque)
+
+    alpha_d = 2 * np.pi / n2
+    alpha_o = 2 * np.pi / n1
+    alpha_m = alpha_d + alpha_o
+
+    wl = f_chaintension / (np.sqrt(1 + np.square(mu_p))) * mu_p * r_b * alpha_m  # loaded side
+    wu = f_cf / (np.sqrt(1 + np.square(mu_p))) * mu_p * r_b * alpha_m  # slack side
+    work = wl + wu
+
+    p_loss = n2 * (w_d / 2 / np.pi) * work  # N*w*SUM(W)
+
+    e = (w_d * torque - p_loss) / (w_d * torque)
+
+    #  e(isnan(e)) = 0.9;  # for divide/0 errors - will set e to 0.9 for w=0
+
+    speed = w_d * r_d
+    return e
 
 def motor_torque_speed(torque_max, w_max, power_max, w_limit, n, show_figure):
     w = np.linspace(0.00001, w_max, n)
@@ -652,7 +694,7 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
                    np.square(TT_Sim.N[0] / TT_Sim.N[1]) * TT_Sim.J.motor)  # J referred to wheel
 
         solver = ode(motorbike_mech4)
-        solver.set_integrator('lsoda', with_jacobian=False)
+        solver.set_integrator('vode', with_jacobian=False)
         solver.set_initial_value(V[0], t[0])
         solver.set_f_params(R[-1], TT_Sim.constants.rho, TT_Sim.constants.cd, J_r[-1], TT_Sim.constants.area,
                             TT_Sim.constants.m, TT_Sim.constants.p_tyre, T_motor[-1], TT_Sim.N[1], TT_Sim.N[0], G[-1])
@@ -660,6 +702,7 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
         # print(t[0], V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
         # corner_index2 = np.arange(locsmin[c], locsmin[c + 3] - 1)
         wheelie = False
+        # heading_interp = interpolate.interp1d(Course_map.dist, Course_map.heading)
 
         for time in t[1:]:
             if D[-1] < Ref_Race.Distance[corner_index[-1]]:
@@ -698,6 +741,7 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
                 # dy = np.interp(D[-1], Course_map.dist, Course_map.y) - np.interp(D[-2], Course_map.dist, Course_map.y)
                 # H.append(np.arctan2(dx,dy))
                 H.append(np.interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
+                #  H.append(heading_interp(D[-1]))
                 dH = H[-1] - H[-2]
                 if dH > np.pi / 2: dH -= np.pi
                 if dH < -np.pi / 2: dH += np.pi
@@ -785,7 +829,7 @@ def lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_ma
         # print(str(a))
         solver = ode(motorbike_mech2)
         # solver.set_integrator('dopri5')     #   5th order runge-kutta
-        solver.set_integrator('lsoda', with_jacobian=False)
+        solver.set_integrator('vode', with_jacobian=False)
         solver.set_initial_value(v0, t[0])
         solver.set_f_params(TT_Sim.constants.r, TT_Sim.constants.rho, TT_Sim.constants.cd, TT_Sim.J.r,
                             TT_Sim.constants.area, TT_Sim.constants.m, TT_Sim.constants.p_tyre, TBrake, TBrake_t,
