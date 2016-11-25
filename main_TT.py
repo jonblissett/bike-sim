@@ -1,5 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
+
 import scipy.io as sio
 from scipy import signal
 
