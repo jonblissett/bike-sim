@@ -1,9 +1,4 @@
 import numpy as np
-try:
-    import matplotlib.pyplot as plt
-except:
-    pass
-
 import scipy.io as sio
 from scipy import signal
 
@@ -24,6 +19,12 @@ from motorbike_functions import lap_analyse2, motor_torque_speed, wheel_forces
 
 enable_warnings = False
 enable_plotting = False
+
+if enable_plotting:
+    try:
+        import matplotlib.pyplot as plt
+    except:
+        pass
 
 # Find list of N1&N2 to test with
 
