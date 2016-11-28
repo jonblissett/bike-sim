@@ -1,9 +1,11 @@
 import numpy as np
 import scipy.io as sio
 from scipy import signal
+from os import remove, rename
+from ipyparallel import Client
 
 import time
-from motorbike_functions import lap_analyse2, motor_torque_speed, wheel_forces
+from motorbike_functions import lap_analyse3, motor_torque_speed, wheel_forces
 
 # done: bus voltage estimation during sim,
 # done: add field weakening torque limiting - make electrical_functions.py
@@ -16,9 +18,11 @@ from motorbike_functions import lap_analyse2, motor_torque_speed, wheel_forces
 # TODO check if regen chain efficiency is correct?
 # TODO try torque vs speed as a ramp? as in like the power requirement
 
-
+verbosity = 0   # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
 enable_plotting = False
+enable_parallel = True      # ipcluster start -n 4
+save_data_files = False
 
 if enable_plotting:
     try:
@@ -33,12 +37,12 @@ first_corner = 0    # 6#62  # 0 = first
 last_corner = 99    # 7#63  # set to large number to use all
 
 # Export parameters
-filename_exp = 'Python_TT_sim_UoN01_max.mat'
-structure_exp = 'TT_sim_UoN01_max'
+filename_exp = 'data_export/Python_TT_sim_UoN01_test.mat'
+structure_exp = 'TT_sim_UoN01_test'
 # Import filenames
-filename_ref_lap = 'TT_Laps_2016.mat'
-filename_ref_map = 'TT_map_zerolean.mat'
-filename_ref_brake = 'TT_Race_2016_manual_braking_pts.mat'
+filename_ref_lap = 'data_import/TT_Laps_2016.mat'
+filename_ref_map = 'data_import/TT_map_zerolean.mat'
+filename_ref_brake = 'data_import/TT_Race_2016_manual_braking_pts.mat'
 structure_map = 'TT_map'
 structure_lap = 'TT_Race'
 var_name_brake = 'locsMin'
@@ -56,12 +60,12 @@ r = 2.003 / 2 / np.pi
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
 TT_Sim = {'N': ([83.0, 18.0]),
-          'constants': {'Km': 257 / 977, 'cd': 0.38, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90 - 12.2, 'p_tyre': 1.9,
+          'constants': {'Km': 257.0 / 977, 'cd': 0.38, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90 - 12.2, 'p_tyre': 1.9,
                         'r': 2.003 / 2 / np.pi, 'IRcell': 0.00438, 'b': 0.7, 'h': 0.6},
           'J': {'wheel': 1.35, 'motor': 0},
           'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615}}
 
-# CHECK WHEEL INERTIA - IS THIS FRONT AND REAR OR TWO FRONT WHEELS?
+# CHECK WHEEL INERTIA - IS THIS FRONT AND REAR
 
 # Model bike electrical specifications
 #  motor torque vs speed characteristic
@@ -71,10 +75,10 @@ initial_energy = rated_energy*1.096
 turns = 11.5
 L_core = 150
 TT_Sim['motor'] = {}
-TT_Sim['motor']['T_max'] = 977 * TT_Sim['constants']['Km']
+TT_Sim['motor']['T_max'] = 977.0 * TT_Sim['constants']['Km']
 TT_Sim['motor']['W_max'] = 10500 / 30 * np.pi
 TT_Sim['motor']['W_lim'] = 10600 / 30 * np.pi
-TT_Sim['motor']['P_max'] = 165e3  # 141000
+TT_Sim['motor']['P_max'] = 40e3 # 125e3  # 141000
 TT_Sim['motor']['poles'] = 12
 TT_Sim['motor']['Ld'] = 53e-6 * (turns/11.5)**2 * L_core / 150
 TT_Sim['motor']['Lq'] = 61e-6 * (turns/11.5)**2 * L_core / 150
@@ -92,25 +96,73 @@ TT_Sim['motor']['Ke'] = 0.3467/6 * (turns/11.5) * L_core / 150  # Back-emf const
 
 # END OF USER PARAMETERS
 
-timer = time.time()
-
 Ref_Race = sio.loadmat(filename_ref_lap, struct_as_record=False, squeeze_me=True)[structure_lap]
 v = 1.0*r * Ref_Race.Rpm / 30 * np.pi * N2 / N1
 del r
 del N2
 del N1  # Just to ensure they are not used accidentally
 
-TT_Sim = lap_analyse2(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_map, filename_ref_brake,
-                      structure_map, var_name_brake, rated_energy, initial_energy, n_series, enable_warnings)
+if enable_parallel:
+    rc = Client()
+    print('Cores assigned', rc.ids)
 
+    with rc[:].sync_imports():
+        import motorbike_functions
+
+    view = rc.load_balanced_view()
+    view.block = True
+    async_results = []
+
+    timer = time.time()
+
+    for b in range(0, 20):
+        for a in range(0, 2):
+            ar = view.apply_async(lap_analyse3, TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_map,
+                                  filename_ref_brake, structure_map, var_name_brake, rated_energy, initial_energy,
+                                  n_series, enable_warnings, verbosity)
+            TT_Sim['motor']['P_max'] += 5e3
+            print('A simulation was initiated:',a,b,a*b)
+            async_results.append(ar)
+        TT_Sim['motor']['T_max'] -= 10
+
+    # instead of this dodgy printing business have option for lap_analyse3 to return tuple of desired parameters
+    # will be useful also for embedded version
+    print(rc.wait(async_results))  # Wait until all tasks are done
+    print(len(async_results))
+
+    for a in range(0, len(async_results)):
+        print(async_results[a].stdout)
+else:
+    timer = time.time()
+    for a in range(0, 1):
+        TT_Sim = lap_analyse3(TT_Sim, Ref_Race, v, first_corner, last_corner, filename_ref_map, filename_ref_brake,
+                              structure_map, var_name_brake, rated_energy, initial_energy, n_series, enable_warnings,
+                              verbosity)
+        TT_Sim['N'][0] -= 1
+
+
+# if verbosity > 0:
 print('Simulation duration =', str(time.time() - timer), 'seconds')
-sio.savemat(filename_exp, {structure_exp: TT_Sim}, oned_as='column')
-print('Simulation saved to', filename_exp, 'as structure named', structure_exp)
 
-print('Motor max speed', str(max(TT_Sim.v) / TT_Sim.constants.r * 30 / np.pi * TT_Sim.N[0] / TT_Sim.N[1]))
-print('Bike max speed (mph) = ', str(max(TT_Sim.v) * 2.23))
-print('Simulated lap time (s) = ', str(TT_Sim.t[-1]))
-print('Simulated lap speed (mph) = ', str(37.733/TT_Sim.t[-1]*3600))
+# Bit of a kludge to convert dict type to mat_structure
+# THIS COULD BE ELIMINATED BY USING DICTS THROUGHOUT
+sio.savemat('temp', {'TT_Sim': TT_Sim}, oned_as='column')
+TT_Sim = sio.loadmat('temp', struct_as_record=False, squeeze_me=True)['TT_Sim']
+
+if save_data_files:
+    rename('temp.mat',filename_exp)
+    if verbosity > 0:
+        print('Simulation saved to', filename_exp, 'as structure named', structure_exp)
+else:
+    remove('temp.mat')
+    if verbosity > 0:
+        print('Simulation NOT saved')
+
+if verbosity > 0:
+    print('Motor max speed', str(max(TT_Sim.v) / TT_Sim.constants.r * 30 / np.pi * TT_Sim.N[0] / TT_Sim.N[1]))
+    print('Bike max speed (mph) = ', str(max(TT_Sim.v) * 2.23))
+    print('Simulated lap time (s) = ', str(TT_Sim.t[-1]))
+    print('Simulated lap speed (mph) = ', str(37.733 / TT_Sim.t[-1] * 3600))
 
 if enable_plotting:
     wheel_forces(1.415, 0.6, 0.7, TT_Sim.constants.r, TT_Sim.constants.m,
