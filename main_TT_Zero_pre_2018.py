@@ -38,9 +38,9 @@ import motorbike_functions as bike
 verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
 enable_plotting = False
-enable_parallel = True  # ipcluster start -n 4
+enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
-dummy_run = False
+dummy_run = True
 calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
