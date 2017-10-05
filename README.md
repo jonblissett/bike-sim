@@ -1,7 +1,7 @@
 This software enables the simulation of an electric motorcycle accounting for numerous electrical and mechanical 
 effects. It is particularly suited to lap time simulation and system optimisation of such motorcycles.
 
-## Installation
+## Prerequisites
 
 Use Python2.7, requires the following packages:
 
@@ -24,4 +24,4 @@ Saved data from the simulation will be storted in the output directory './data_e
 Filenames beginning 'main' are a good place to start.
 
 If running using parallel processing, in the working directory execute command `ipcluster start -n ?` where ? 
-specfies the number of cores. This is not nessecary for 'one off' simulations.
+specfies the number of cores. This is not required for single simulations.
