@@ -11,10 +11,11 @@ Commonnly used python functions are compiled in C using Cython for speed. These 
 with Cython uing the following commands:
 
 ```sh
-    python2.7 Cythonise_bike_fcn.py build_ext --inplace
-    python2.7 Cythonise_interp_fcn.py build_ext --inplace 
-    python2.7 Cythonise_losses_fcn.py build_ext --inplace 
-    python2.7 Cythonise_pmsm_fcn.py build_ext --inplace 
+python2.7 Cythonise_bike_fcn.py build_ext --inplace
+python2.7 Cythonise_interp_fcn.py build_ext --inplace 
+python2.7 Cythonise_losses_fcn.py build_ext --inplace 
+python2.7 Cythonise_pmsm_fcn.py build_ext --inplace 
+```
 
 ## Usage
 
