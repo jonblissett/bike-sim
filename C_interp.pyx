@@ -74,11 +74,11 @@ def interp(x, xp, fp, left=None, right=None, period=None):
 from bisect import bisect_left
 
 
-def fast_interp(np.ndarray[np.double_t] val_array, np.ndarray[np.double_t] x, np.ndarray[np.double_t] y,left=None,right=None):
+def fast_interp(np.ndarray[np.double_t, ndim=1] val_array, np.ndarray[np.double_t, ndim=1] x, np.ndarray[np.double_t, ndim=1] y,left=None,right=None):
     cdef unsigned int index, trap
     cdef unsigned int ntraps=val_array.size
     cdef long double val, _xrange, xdiff, modolo, ydiff
-    cdef np.ndarray y_interp = np.zeros(ntraps, dtype=np.float64)
+    cdef np.ndarray[np.double_t, ndim=1] y_interp = np.zeros(ntraps, dtype=np.double_t)
     for trap in range(ntraps):
         index = 0
         val = val_array[trap]

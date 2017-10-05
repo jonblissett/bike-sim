@@ -7,3 +7,8 @@ fossilised/
 __pycache__
 /octave/*.mat
 /octave/fossilised
+*.c
+*.so
+*.pyd
+data_export/
+data_import/confidential/

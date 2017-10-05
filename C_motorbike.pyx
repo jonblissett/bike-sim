@@ -6,6 +6,14 @@ cimport cython
 
 from libc.math cimport sqrt # sin, cos, acos, exp, sqrt, fabs, M_PI
 
+cpdef C_torque_limits(double R, double V, double n2, double n1, double m, double b, double h, double rho,
+                      double cd, double a, double mu):
+    kn = n2 / n1 * R
+    to_max_wh = kn * (m * 9.81 * b / h - V ** 2 * rho * cd * a / 2)
+    to_max_fr = mu * m * 9.81 * kn
+    to_max = min(to_max_wh, to_max_fr)
+    return [to_max, to_max_wh, to_max_fr]
+
 
 cpdef inline chain_eff_single(int n2, int n1, double p, double m_ch, double cd, double w_d, double torque, double mu_p, double r_b):
     # returns chain efficiency = e, chain speed = v.
@@ -47,8 +55,6 @@ cpdef inline chain_eff_single(int n2, int n1, double p, double m_ch, double cd, 
     p_loss = n2 * (w_d / 2.0 / pi) * den * (f_chaintension + f_cf)  # N*w*SUM(W)
 
     e = (w_d * torque - p_loss) / (w_d * torque)
-
-    #  e(isnan(e)) = 0.9;  # for divide/0 errors - will set e to 0.9 for w=0
 
     return [e, w_d * r_d, f_chaintension]
 

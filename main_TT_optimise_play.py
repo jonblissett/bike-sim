@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.io as sio
 from scipy import signal
-from os import remove, rename, getcwd
+from os import remove, rename, path
 from itertools import product
 from itertools import izip_longest  # This is used to deal with variable length of lists
 import time
@@ -28,10 +28,10 @@ calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
-motor_manufacturer = 'import'  # 'me', 'Emrax'
+motor_manufacturer = 'Parker'  # 'me', 'Emrax'
 igbt = 'SEMiX603_SiC'  # 'FF600'  # 'SEMiX603_SiC'
 
-course_speed_limit = 165 / 2.23
+course_speed_limit = 159 / 2.23
 
 track = 'TT'
 
@@ -49,16 +49,18 @@ parallel_queue = 100
 #  - Release time of braking instance
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
-TT_Sim = {'N': ([83.0, 18.0]),
+TT_Sim = {'N': ([83.0, 17.0]),
           'constants': {'cd': 0.32, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
-                        'r': 2.16 / 2 / np.pi, 'b': 0.725, 'h': 0.56, 'k_tyre': 0.7},
+                        'r': 2.16 / 2 / np.pi, 'b': 0.725, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
-          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.0},
+          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           #'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
           'drive': {},
-          'IGBT': {}
+          'IGBT': {},
+          'v_max': course_speed_limit,
+          'file': {'motorimport': 'MotorLAB_export.mat'}#_Mr25
           }
 
 
@@ -88,6 +90,7 @@ if track == 'TT':
     # Export parameters
     filename_exp = 'data_export/Python_Sims_FW_TT_testing.mat'
     # filename_exp = 'data_export/TT_SpeedLimits/Python_Sims_FW_TT_SpeedLimit_' + str(int(2.23*course_speed_limit)) + 'mph.mat'
+    # filename_exp = 'data_export/18s16p_P_T_9_various_Mr25/Python_Sim_' + motor_manufacturer + '_motor_power_varied_mph_Mr25_regen.mat'
 
     structure_exp = 'TT_sims'
 
@@ -121,10 +124,10 @@ if track == 'TT':
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
     TT_Sim['battery']['series'] = 168
     TT_Sim['battery']['parallel'] = 4
-    TT_Sim['battery']['cellAh'] = 10
+    TT_Sim['battery']['cellAh'] = 10 * 0.9  # -0.28
     TT_Sim['battery']['cellVnom'] = 3.7
     TT_Sim['battery']['cellIR'] = 0.00438
-    TT_Sim['battery']['E_density'] = 3.7 * 6 * 40 / 4.8
+    TT_Sim['battery']['E_density'] = 3.7 * 6 * 40 / 4.8  # 3.7*8/0.175
     charge_ratio = 1.08  # 1.096
     motor_mass_kf = 1
     scrutineering_cheat = 4
@@ -134,15 +137,16 @@ if track == 'TT':
         TT_Sim['Vdc_sim'] = sim.Vdc_sim
 
     variables_list = {
-        'P_max': np.arange(390, 400, 10) * 1000,
-        'T_max': np.arange(100, 1000, 10),
+        'P_max': np.arange(140, 210, 5) * 1000,
+        'T_max': np.arange(420, 430, 10),
         # 'n0': range(42, 84, 41),
-        # 'n1': range(15, 22, 1),
-        'parallel': np.arange(4.5, 7, 0.5),
+        'n1': range(17, 25, 1),
+        'v_max': np.arange(159, 176, 0.5) / 2.23,
+        # 'parallel': np.arange(4.5, 7, 0.5),
         # 'L_core': range(100, 525, 25),
-        'L_core': np.arange(150, 200, 25),
-        'turns': np.arange(8.5, 16.5, 2),
-        'drives': range(1, 3),
+        # 'L_core': np.arange(150, 200, 25),
+        # 'turns': np.arange(8.5, 16.5, 2),
+        # 'drives': range(1, 3),
         # CdA ??
         # regen?
     }
@@ -151,7 +155,7 @@ elif track == 'Portimao':
     first_corner = 0
     last_corner = 16
     corner_delete = []
-    laps = 5
+    laps = 6
 
     end_dist = 4494 * laps - 250 - 230 # Distance at lap end for timing
     print(' CHECK RADIUS WITH TRACK LENGTH')
@@ -265,21 +269,16 @@ TT_Sim = bike.charge_battery(TT_Sim, charge_ratio)
 TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, verbosity)[0]
 #################################
 
-TT_Sim['motor']['N'] = 16.5
-TT_Sim['motor']['L_core'] = 150.0
+if TT_Sim['motor']['manufacturer'] == 'Parker':
+    TT_Sim['motor']['N'] = 11.5  # p is 18.5
+    TT_Sim['motor']['L_core'] = 150.0
 
 TT_Sim = bike.motor_sizing(TT_Sim)
+TT_Sim = bike.set_speed_limit(TT_Sim, TT_Sim['v_max'])
 
-w_max = course_speed_limit * TT_Sim['N'][0] / TT_Sim['N'][1] / TT_Sim['constants']['r']  # 10500 / 30 * np.pi * 0.94# 7800 / 30 * np.pi
-
-# if w_max < TT_Sim['motor']['W_max']
-TT_Sim['motor']['W_speed_lim'] = 0.99 * w_max
-
-TT_Sim['motor']['W_lim'] = TT_Sim['motor']['W_speed_lim'] * 1.01  #8400 / 30 * np.pi
-
-TT_Sim['motor']['T_max'] = bike.motor_torque(TT_Sim['motor']['co'], 800)  # TT_Sim['motor']['T_pk']  #
-print('Motor torque = ' + str(TT_Sim['motor']['T_max']))
-TT_Sim['motor']['P_max'] = TT_Sim['motor']['P_pk'] *0.99 # *0.66
+TT_Sim['motor']['T_max'] = bike.motor_torque(TT_Sim['motor']['co'], 404*1.4146)  # TT_Sim['motor']['T_pk']  #
+print('Motor torque = ' + str(TT_Sim['motor']['T_max']) + ' Nm')
+TT_Sim['motor']['P_max'] = 150e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
 [TT_Sim['motor']['w'], TT_Sim['motor']['t'], TT_Sim['motor']['p']] = bike.motor_torque_speed(TT_Sim['motor']['T_max'],
                                                                                              TT_Sim['motor']['W_speed_lim'],
                                                                                              TT_Sim['motor']['P_max'],
@@ -288,7 +287,7 @@ TT_Sim['motor']['P_max'] = TT_Sim['motor']['P_pk'] *0.99 # *0.66
 
 TT_Sim['drive']['n'] = 1.0
 TT_Sim['drive']['m'] = 5.0
-TT_Sim['drive']['I_max'] = 801  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
+TT_Sim['drive']['I_max'] = 1001  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
 
 # TT_Sim['motor']['w'] = np.array([0, 4166.7, 7333.3, 10500]) / 30 * np.pi  # Daley TTZ 2016 limits
 # TT_Sim['motor']['t'] = np.array([106, 106, 65.791, 45.949])
@@ -346,7 +345,7 @@ if enable_parallel:
         n_sims *= len(b)
     print('Number of sims expected:', n_sims)
 
-    dict1 = [dict(izip_longest(variables_list, v)) for v in product(*variables_list.values())]
+    dict1 = [dict(izip_longest(variables_list, va)) for va in product(*variables_list.values())]
 
     from ipyparallel import Client
 
@@ -401,7 +400,7 @@ if enable_parallel:
                 if key == 'drives':
                     TT_Sim['drive']['n'] = value * 1.0
                 # If key not found??
-
+        TT_Sim = bike.set_speed_limit(TT_Sim, TT_Sim['v_max'])
         if (TT_Sim['motor']['L_core'] != prev_L) or (TT_Sim['motor']['N'] != prev_N):
             TT_Sim = bike.charge_battery(TT_Sim, charge_ratio)
             TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, 0)[0]
@@ -417,20 +416,20 @@ if enable_parallel:
                     if optimise_ratio:
                         ar = view.apply_async(bike.gear_optimise, TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps,
                                               end_dist, filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                              enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                              enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                     else:
                         ar = view.apply_async(bike.lap_analyse3, TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps,
                                               end_dist, filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                              enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                              enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                 else:
                     if optimise_ratio:
                         ar = bike.gear_optimise(TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps, end_dist,
                                                 filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                                enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                                enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                     else:
                         ar = bike.lap_analyse3(TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps, end_dist,
                                                filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                               enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                               enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                 async_results.append(ar)
                 if count % parallel_queue == 0:
                     print('Waiting for results, %.1f%% completed' % (count_all / n_sims * 100))
@@ -447,12 +446,12 @@ if enable_parallel:
             print('Race ' + str(count) + ' started: m = ' + str(round(TT_Sim['mass']['bike'])), TT_Sim['motor']['P_max'],
                   TT_Sim['motor']['T_max'], TT_Sim['N'],
                   str(TT_Sim['battery']['series']) + 's' + str(TT_Sim['battery']['parallel']) + 'p',
-                  str(TT_Sim['motor']['name']) + '-X' + str(TT_Sim['drive']['n']))
+                  str(TT_Sim['motor']['name']) + '-X' + str(TT_Sim['drive']['n']), str(TT_Sim['v_max']*2.23) + ' mph')
         # else:
         #     print('Scrutineering FAILED, score: ' + str(TT_Sim['scrutineering']['score']))
 
     #print('ET=', 0.7 * count / 60, ' minutes')
-    print('ET=', 1.02 * count / 3600, ' hours')
+    print('ET=', 3.97 * count / 3600, ' hours')
 
     if not dummy_run:
         print('Waiting for results, %.1f%% completed' % (count_all / n_sims * 100))
@@ -503,7 +502,8 @@ else:
     TT_Sim = sio.loadmat('temp', struct_as_record=False, squeeze_me=True)['TT_Sim']
 
     if save_data_files:
-        remove(filename_exp)
+        if path.exists(filename_exp):
+            remove(filename_exp)
         rename('temp.mat', filename_exp)
         if verbosity > 0:
             print('Simulation saved to ' + str(filename_exp) + ' as structure named ' + str(structure_exp))
@@ -517,15 +517,16 @@ else:
         tmax = TT_Sim.t[sum(end_dista)-1]
         print('Estimated bike mass = %.1f kg' % (TT_Sim.constants.m - 90))
         print('Motor max speed = %d rpm' % max(TT_Sim.Rpm))
-        print('Motor mass = %.1f kg' % TT_Sim.motor.m + ' + inertial mass of %.2f kg' % (TT_Sim.motor.J/(TT_Sim.constants.r ** 2)))
+        print('Motor mass = %.1f kg' % TT_Sim.motor.m + ' + inertial mass of %.2f kg' %
+              (((TT_Sim.N[0] / TT_Sim.N[1]) ** 2 * TT_Sim.J.motor)/(TT_Sim.constants.r ** 2)))
         print('Bike max speed = %.1f mph' % (max(TT_Sim.v) * 2.23))
         print('Simulated lap time = %.2f s' % tmax)
         print('Simulated lap speed = %.2f mph' % (37.733 / TT_Sim.t[-1] * 3600))
 
     if enable_plotting:
-        bike.wheel_forces(TT_Sim.Distance,1.415, TT_Sim.constants.h, TT_Sim.constants.b, TT_Sim.constants.R, TT_Sim.constants.m,
-                          np.square(TT_Sim.v) * TT_Sim.constants.rho * TT_Sim.constants.cd * TT_Sim.constants.area / 2.0,
-                          TT_Sim.torque * TT_Sim.N[0] / TT_Sim.N[1], 1)
+        bike.wheel_forces(TT_Sim.Distance,1.415, TT_Sim.constants.h, TT_Sim.constants.b, TT_Sim.constants.R,
+                          TT_Sim.constants.m, np.square(TT_Sim.v) * TT_Sim.constants.rho * TT_Sim.constants.cd
+                          * TT_Sim.constants.area / 2.0, TT_Sim.torque * TT_Sim.N[0] / TT_Sim.N[1], 1)
 
         fig7 = plt.figure(7)
         ax = fig7.add_subplot(2, 2, 1)
