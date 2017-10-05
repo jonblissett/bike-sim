@@ -1,3 +1,9 @@
 fossilised/
 .*/
 .*
+/build
+/pre_cython
+/pre_cython_main
+__pycache__
+/octave/*.mat
+/octave/fossilised
