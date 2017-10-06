@@ -55,6 +55,6 @@ If you see the error 'Unable to find vcvarsall.bat', open the command prompt wit
 commands first:
 
 ```
-C:\WINDOWS\system32>SET DISTUTILS_USE_SDK=1
-C:\WINDOWS\system32>SET MSSdk=1
+SET DISTUTILS_USE_SDK=1
+SET MSSdk=1
 ```
