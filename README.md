@@ -5,7 +5,7 @@ effects. It is particularly suited to lap time simulation and system optimisatio
 
 Use Python2.7, requires the following packages:
 
-matplotlib, numpy, scipy, cython, os, itertools, time
+matplotlib, numpy, scipy, cython, os, itertools, time, ipyparallel
 
 Commonnly used python functions are compiled in C using Cython for speed. These .pyx files must first be compiled 
 with Cython uing the following commands:
@@ -29,6 +29,8 @@ specfies the number of cores. This is not required for single simulations.
 ## Windows installation
 
 If you must use Windows, the following steps are required:
+
+0. Install [Python2.7](https://www.python.org/downloads/windows/).
 
 1. To edit and debug the code you will want an IDE. I use 
 [PyCharm](https://www.jetbrains.com/pycharm/). Python2.7 and the packages specified 
