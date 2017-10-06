@@ -34,13 +34,13 @@ TT_Sim = {'N': ([71.0, 18.0]),
                         'r': 2.16 / 2 / np.pi, 'b': 0.725, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
           'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0},
-          #'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
+          #  'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
           'drive': {},
-          'IGBT': {},
+          'IGBT': bike.spec_igbt(igbt),
           'v_max': course_speed_limit,
-          'file': {'motorimport': 'MotorLAB_export.mat'}#_Mr25
+          'file': {'motorimport': 'MotorLAB_export.mat'}  #_Mr25
           }
 
 TT_Sim['motor']['N'] = 18.5  # p is 18.5

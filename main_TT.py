@@ -71,29 +71,15 @@ TT_Sim = {'N': ([83.0, 17.0]),
                         'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
           'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.615},
-          #'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
+          #  'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
           'drive': {},
-          'IGBT': {},
+          'IGBT': bike.spec_igbt(igbt),
           'v_max': course_speed_limit,
-          'file': {'motorimport': 'MotorLAB_export.mat'}#_Mr25
+          'file': {'motorimport': 'MotorLAB_export.mat'}  #_Mr25
           }
 
-
-# ADD MODULE LEAD RESISTANCE
-if igbt == 'FS800':
-    TT_Sim['IGBT'] = {'Uce0': 0.8, 'Ud0': 1.0, 'Rc': 0.95e-3, 'Rd': 0.54e-3, 'Eon': 12e-3, 'Eoff': 25e-3, 'Ed': 9.5e-3,
-                      'Vce_test': 300.0, 'Ic_test': 550.0, 'Fsw': 13e3}
-elif igbt == 'FF600':
-    TT_Sim['IGBT'] = {'Uce0': 0.8, 'Ud0': 0.8, 'Rc': 1.85e-3, 'Rd': 1.3e-3, 'Eon': 83e-3, 'Eoff': 72e-3, 'Ed': 44e-3,
-                      'Vce_test': 600.0, 'Ic_test': 600.0, 'Fsw': 13e3}
-elif igbt == 'SEMiX603_SiC':
-    TT_Sim['IGBT'] = {'Uce0': 0.8, 'Ud0': 1.0, 'Rc': 1.65e-3, 'Rd': 2.6e-3, 'Eon': 17e-3, 'Eoff': 72e-3, 'Ed': 0,
-                      'Vce_test': 600.0, 'Ic_test': 600.0, 'Fsw': 13e3}
-elif igbt == 'FS900': # copied diodes from f800 as no data
-    TT_Sim['IGBT'] = {'Uce0': 0.7, 'Ud0': 1.0, 'Rc': 0.67e-3, 'Rd': 0.54e-3, 'Eon': 32e-3, 'Eoff': 34e-3, 'Ed': 14e-3,
-                      'Vce_test': 400.0, 'Ic_test': 550.0, 'Fsw': 13e3}
 
 if track == 'TT':
     # Select which corners to analyse

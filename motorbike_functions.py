@@ -45,6 +45,34 @@ import time
 #    return motorbike_mech_base(t, v, r, rho, cd, jr, area, m, p_tyre, np.interp(t, t_mott, t_mot, 0, 0), n2, n1,
 #                               e_chain, gradient)
 
+def spec_igbt(igbt):
+    # ADD MODULE LEAD RESISTANCE
+    print('Todo: add IGBT module lead resistance')
+    if igbt == 'FS800':
+        ret = {'Uce0': 0.8, 'Ud0': 1.0, 'Rc': 0.95e-3, 'Rd': 0.54e-3, 'Eon': 12e-3, 'Eoff': 25e-3,
+                          'Ed': 9.5e-3,
+                          'Vce_test': 300.0, 'Ic_test': 550.0, 'Fsw': 12e3}
+    elif igbt == 'FF600':
+        ret = {'Uce0': 0.8, 'Ud0': 0.8, 'Rc': 1.85e-3, 'Rd': 1.3e-3, 'Eon': 83e-3, 'Eoff': 72e-3,
+                          'Ed': 44e-3,
+                          'Vce_test': 600.0, 'Ic_test': 600.0, 'Fsw': 12e3}
+    elif igbt == 'SEMiX603_SiC':
+        ret = {'Uce0': 0.8, 'Ud0': 1.0, 'Rc': 1.65e-3, 'Rd': 2.6e-3, 'Eon': 17e-3, 'Eoff': 72e-3, 'Ed': 0,
+                          'Vce_test': 600.0, 'Ic_test': 600.0, 'Fsw': 12e3}
+    elif igbt == 'FS900':  # copied diodes from f800 as no data
+        ret = {'Uce0': 0.7, 'Ud0': 1.0, 'Rc': 0.67e-3, 'Rd': 0.54e-3, 'Eon': 32e-3, 'Eoff': 34e-3,
+                          'Ed': 14e-3,
+                          'Vce_test': 400.0, 'Ic_test': 550.0, 'Fsw': 12e3}
+    elif igbt == 'CAS325':
+        ret = {'Uce0': 0.0, 'Ud0': 0.75, 'Rc': 6.5e-3, 'Rd': 4.5e-3, 'Eon': 5.6e-3, 'Eoff': 3.7e-3, 'Ed': 0,
+                          'Vce_test': 600.0, 'Ic_test': 300.0, 'Fsw': 12e3}
+    elif igbt == 'FS450':
+        ret = {'Uce0': 0.8, 'Ud0': 0.8, 'Rc': 2.5e-3, 'Rd': 1.7e-3, 'Eon': 40.5e-3, 'Eoff': 56.5e-3,
+                          'Ed': 39.5e-3,
+                          'Vce_test': 600.0, 'Ic_test': 450.0, 'Fsw': 12e3}
+    return ret
+
+
 def chain_eff(n2, n1, p, m_ch, cd, w_d, torque, mu_p, r_b):
     # returns chain efficiency = e, chain speed = v.
     # N1 = driven sprocket, N2 = driving.
