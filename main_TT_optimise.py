@@ -45,7 +45,7 @@ calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
-motor_manufacturer = 'import'  # 'me', 'Emrax'
+motor_manufacturer = 'Parker'  # 'me', 'Emrax'
 igbt = 'CAS325'  # 'FF600'  # 'CAS325' 'SEMiX603_SiC'
 
 course_speed_limit = 163 / 2.23

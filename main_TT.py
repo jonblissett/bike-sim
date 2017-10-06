@@ -45,7 +45,7 @@ calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
-motor_manufacturer = 'import'  # 'me', 'Emrax'
+motor_manufacturer = 'Parker'  # 'me', 'Emrax'
 igbt = 'SEMiX603_SiC'  # 'FF600'  # 'SEMiX603_SiC'
 
 course_speed_limit = 165 / 2.23
@@ -66,16 +66,18 @@ parallel_queue = 100
 #  - Release time of braking instance
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
-TT_Sim = {'N': ([83.0, 18.0]),
+TT_Sim = {'N': ([83.0, 17.0]),
           'constants': {'cd': 0.32, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
-                        'r': 2.16 / 2 / np.pi, 'b': 0.725, 'h': 0.56, 'k_tyre': 0.7},
+                        'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
-          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.0},
+          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.615},
           #'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
           'drive': {},
-          'IGBT': {}
+          'IGBT': {},
+          'v_max': course_speed_limit,
+          'file': {'motorimport': 'MotorLAB_export.mat'}#_Mr25
           }
 
 

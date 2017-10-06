@@ -51,7 +51,7 @@ C:\Python27\python.exe Cythonise_losses_fcn.py build_ext --inplace --compiler=ms
 C:\Python27\python.exe Cythonise_pmsm_fcn.py build_ext --inplace --compiler=msvc
 ```
 
-If you see the error 'Unable to find vcvarsall.bat', open the command prompt with the C++ Compiler and execute the following 
+If you see the error 'Unable to find vcvarsall.bat', open the command prompt for the C++ Compiler and execute the following 
 commands first:
 
 ```
