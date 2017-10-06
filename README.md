@@ -5,7 +5,7 @@ effects. It is particularly suited to lap time simulation and system optimisatio
 
 Use Python2.7, requires the following packages:
 
-matplotlib, numpy, scipy, cython, os, itertools, time, ipyparallel
+matplotlib, numpy, scipy, cython, time, ipyparallel
 
 Commonnly used python functions are compiled in C using Cython for speed. These .pyx files must first be compiled 
 with Cython uing the following commands:
@@ -33,13 +33,16 @@ If you must use Windows, the following steps are required:
 0. Install [Python2.7](https://www.python.org/downloads/windows/).
 
 1. To edit and debug the code you will want an IDE. I use 
-[PyCharm](https://www.jetbrains.com/pycharm/). Python2.7 and the packages specified 
-in prerequisits should now be installed, likely within the IDE.
+[PyCharm](https://www.jetbrains.com/pycharm/). 
 
-2. Install a suitable C compiler, such as [Microsoft Visual C++ Compiler for Python 2.7
+2. You should now install the prerequesit packages, likely within the IDE. You may find it easier to install Numpy 
+and SciPy from [here](http://www.lfd.uci.edu/~gohlke/pythonlibs/#numpy) and 
+[here](http://www.lfd.uci.edu/~gohlke/pythonlibs/#scipy).
+
+3. Install a suitable C compiler, such as [Microsoft Visual C++ Compiler for Python 2.7
 ](https://www.microsoft.com/en-gb/download/details.aspx?id=44266).
 
-3. Compile the C code using Cython. Typically:
+4. Compile the C code using Cython. First ensure your IDE is not running. Typically:
 
 ```
 C:\Python27\python.exe Cythonise_bike_fcn.py build_ext --inplace --compiler=msvc
@@ -48,7 +51,8 @@ C:\Python27\python.exe Cythonise_losses_fcn.py build_ext --inplace --compiler=ms
 C:\Python27\python.exe Cythonise_pmsm_fcn.py build_ext --inplace --compiler=msvc
 ```
 
-If you get errors, from the same command promp first execute:
+If you see the error 'Unable to find vcvarsall.bat', open the command prompt with the C++ Compiler and execute the following 
+commands first:
 
 ```
 C:\WINDOWS\system32>SET DISTUTILS_USE_SDK=1
