@@ -20,7 +20,20 @@
 cimport cython
 
 
-from libc.math cimport sqrt # sin, cos, acos, exp, sqrt, fabs, M_PI
+from libc.math cimport sqrt, atan # sin, cos, acos, exp, sqrt, fabs, M_PI
+
+
+cpdef inline double C_lean_calc(double vel, double dh, double dt):  # double check that the dh value sign passed to this is correct
+    if dh > 1.57079632679:
+        dh -= 3.14159265359
+    if dh < -1.57079632679:
+        dh += 3.14159265359
+    return atan(vel * dh / dt / 9.81)  # w = dH / dt, a_lateral = V[-1] * w
+
+
+cpdef inline double C_dist_calc(double d_prev, double v_prev, double v_prevprev, double dt):
+    return d_prev + (v_prev + v_prevprev) * dt / 2.0
+
 
 cpdef C_torque_limits(double R, double V, double n2, double n1, double m, double b, double h, double rho,
                       double cd, double a, double mu):

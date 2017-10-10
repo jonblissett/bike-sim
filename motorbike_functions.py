@@ -28,9 +28,10 @@ from scipy.integrate import odeint
 from scipy import integrate, optimize
 from scipy.integrate import ode
 from C_interp import fast_interp
-from C_motorbike import chain_eff_single, motorbike_mech_base, motorbike_mech4, motorbike_mech2, C_torque_limits
+from C_motorbike import chain_eff_single, motorbike_mech_base, motorbike_mech4, motorbike_mech2, C_torque_limits, C_lean_calc, C_dist_calc
 from C_pmsm import C_id_pmsm, C_w_pmsm, C_vs_pmsm, C_v_dq_pmsm, C_motor_current_newton, C_torque_fw
 from C_losses import C_motor_losses, C_inverter_losses, C_inverter_loss
+from math import cos, atan
 import time
 # from numba import jit
 #  could call mech2 from within mech4, combine them ish?
@@ -200,6 +201,22 @@ def braking_regen(w, torque_wheel, t_brake_lim, k):
     return torque
 
 
+def lean_calc(vel, dh, dt):  # double check that the dh value sign passed to this is correct
+    if dh > np.pi / 2:
+        dh -= np.pi
+    if dh < -np.pi / 2:
+        dh += np.pi
+    return atan(vel * dh / dt / 9.81)  # w = dH / dt, a_lateral = V[-1] * w
+
+
+def dist_calc(d_prev, v_prev, v_prevprev, dt):
+    return d_prev + (v_prev + v_prevprev) * dt / 2.0
+
+
+def tyre_r_from_lean(r_nominal, w, angle):
+    return r_nominal - w * (1 - cos(angle))
+
+
 def gear_optimise(TT_Sim, ref_race, v, first_corner, last_corner, corner_delete, laps, end_dist, filename_ref_map, filename_ref_brake,
                   structure_map, var_name_brake, enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed):
     N0 = TT_Sim['N'][1]
@@ -365,8 +382,8 @@ def lap_analyse3(TT_Sim, ref_race, v, first_corner, last_corner, corner_delete, 
     TT_Sim['Temperature']['Battery'] = np.array([])
 
     TT_Sim['J']['linear'] = TT_Sim['constants']['m'] * TT_Sim['constants']['r'] ** 2
-    TT_Sim['J']['r'] = 2 * TT_Sim['J']['wheel'] + TT_Sim['J']['linear'] + np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * \
-                                                                          TT_Sim['J']['motor']  # J referred to wheel
+    j_mot_to_wheel = np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor']
+    TT_Sim['J']['r'] = 2 * TT_Sim['J']['wheel'] + TT_Sim['J']['linear'] + j_mot_to_wheel  # J referred to wheel
 
     fw_vars = [TT_Sim['motor']['Ke'], TT_Sim['motor']['poles'], TT_Sim['motor']['Rs'], TT_Sim['motor']['Ld'],
                     TT_Sim['motor']['Lq'], TT_Sim['battery']['IR'], TT_Sim['motor']['L_core'], TT_Sim['motor']['T_con'],
@@ -495,13 +512,12 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
         G.append(np.interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
         A.append(np.interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
         lean.append(0.0)
-        R.append(TT_Sim['constants']['r'] - 0.12 * (1 - np.cos(A[-1])))
+        R.append(tyre_r_from_lean(TT_Sim['constants']['r'], 0.11, A[-1]))  # BAAAAAAD - VARIABLE NEEDED FOR TYRE
         H.append(np.interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
         T_motor.append(np.interp(V[-1] / R[-1] * TT_Sim['N'][0] / TT_Sim['N'][1], TT_Sim['motor']['w'],
                                  TT_Sim['motor']['t'], 0.001, 0.001))
         J_l.append(TT_Sim['constants']['m'] * R[-1] ** 2)
-        J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] +
-                   np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor'])  # J referred to wheel
+        J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] + j_mot_to_wheel)  # J referred to wheel
 
         solver = ode(motorbike_mech4)
         solver.set_integrator('vode', with_jacobian=False)
@@ -520,14 +536,12 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
                 V.append(solver.integrate(time))
                 G.append(fast_interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
                 A.append(fast_interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
-                R.append(TT_Sim['constants']['r'] - 0.12 * (1 - np.cos(A[-1])))
+                R.append(tyre_r_from_lean(TT_Sim['constants']['r'], 0.11, A[-1]))  # BAAAAAAD - VARIABLE NEEDED FOR TYRE
                 #  R[-1]=TT_Sim['constants']['r']
                 T_motor.append(fast_interp(V[-1] / R[-1] * TT_Sim['N'][0] / TT_Sim['N'][1], TT_Sim['motor']['w'],
                                          TT_Sim['motor']['t'], T_motor[-1] / 2, T_motor[-1] / 2))
                 if (time - t[0] < ramp_time) & (c != 0):  # ramp of 1.5 second
-                    tramp = ramp_start + (1 - ramp_start) * (time - t[0]) / ramp_time
-                    T_motor[-1] *= tramp
-                    #  print(time, time-t[0], tramp)
+                    T_motor[-1] *= ramp_start + (1 - ramp_start) * (time - t[0]) / ramp_time
 
                 to_max = wheelie_torque_limit(TT_Sim, R[-1], V[-1])
                 #  print('to_max', to_max, T_motor[-1])
@@ -538,24 +552,16 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
                 #  T_motor[-1] = Ref_Race['constants']Km * fast_interp(time, Ref_Race.t, Ref_Race.Iq, -1, -1)
 
                 J_l.append(TT_Sim['constants']['m'] * R[-1] ** 2)
-                J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] +
-                           np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor'])  # J ref to wheel
+                J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] + j_mot_to_wheel)  # J ref to wheel
                 solver.set_f_params(R[-1], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'], J_r[-1],
                                     TT_Sim['constants']['area'], TT_Sim['constants']['m'],
                                     TT_Sim['constants']['p_tyre'], T_motor[-1], TT_Sim['N'][1], TT_Sim['N'][0], G[-1])
-                dD = np.squeeze(V[-1] + V[-2]) * dt_a / 2.0
-                D.append(D[-1] + dD)
+                D.append(C_dist_calc(D[-1], V[-1], V[-2], dt_a))
+                # D.append(D[-1] + np.squeeze(V[-1] + V[-2]) * dt_a / 2.0)
 
                 H.append(fast_interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
-                #  H.append(heading_interp(D[-1]))
-                dH = H[-1] - H[-2]
-                if dH > np.pi / 2:
-                    dH -= np.pi
-                if dH < -np.pi / 2:
-                    dH += np.pi
-                w = dH / dt_a
-                a_lateral = V[-1] * w
-                lean.append(np.arctan(a_lateral / 9.81))
+                lean.append(C_lean_calc(V[-1], H[-1] - H[-2], dt_a))
+
 
                 # print(D[-1], H[-1], V[-1], lean[-1]*180/np.pi, A[-1]*180/np.pi)
                 # print(time, V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
@@ -659,12 +665,7 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
                 D2.append(D2[-1] + np.squeeze(V2[-1] + V2[-2]) * -dt_b / 2.0)
                 G2.append(fast_interp(D2[-1], Course_map.dist, Course_map.gradient, 0, 0))
                 H2.append(fast_interp(D2[-1], Course_map.dist, Course_map.heading, 0, 0))
-                dH = -1 * (H2[-1] - H2[-2])
-                if dH > np.pi / 2: dH -= np.pi
-                if dH < -np.pi / 2: dH += np.pi
-                w = dH / dt_a
-                a_lateral = V2[-1] * w
-                lean2.append(np.arctan(a_lateral / 9.81))
+                lean2.append(C_lean_calc(V2[-1], H2[-2] - H2[-1], -dt_b))
                 # print('V2 = ', V2[j], 't = ', t[j])
                 solver.set_f_params(TT_Sim['constants']['r'], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'], TT_Sim['J']['r'],
                                     TT_Sim['constants']['area'], TT_Sim['constants']['m'], TT_Sim['constants']['p_tyre'], TBrake,
@@ -770,8 +771,8 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
             fig6.show()
             plt.show()
 
-        tgained = Ref_Race.t[corner_index[-1]] - Tboth[-1]
         if verbosity > 1:
+            tgained = Ref_Race.t[corner_index[-1]] - Tboth[-1]
             print('Time gained = %.1f s' % tgained, ' on corner %d' % c)
 
         if TT_Sim['t'].size == 0:  # if not [] == true
@@ -814,11 +815,10 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
         TT_Sim['PF'] = power_factor
         TT_Sim['Vdc'] = np.hstack((TT_Sim['Vdc'], TT_Sim['Vdc_sim'][c] * np.ones(TT_Sim['t'].size - TT_Sim['Vdc'].size)))
 
-        p_drive_loss = TT_Sim['drive']['n'] * inverter_losses(TT_Sim['Vdc'], TT_Sim['Vs'],
-                                                              abs(TT_Sim['Iq']) / np.sqrt(2) /
-                                                              TT_Sim['drive']['n'], TT_Sim['PF'], 82e-6, 13e3,
-                                                                   0.8, 1, 0.95e-3, 0.54e-3, 12e-3, 25e-3, 9.5e-3)[0]
-        TT_Sim['P']['DriveLosses'] = p_drive_loss
+        TT_Sim['P']['DriveLosses'] = TT_Sim['drive']['n'] * inverter_losses(TT_Sim['Vdc2'], TT_Sim['Vs'],
+                                                                            TT_Sim['Is'] / np.sqrt(2) /
+                                                                            TT_Sim['drive']['n'], TT_Sim['PF'],
+                                                                            TT_Sim['motor']['Lq']*3/2, TT_Sim)[0]
         TT_Sim['P']['Mech'] = TT_Sim['Rpm'] / 30 * np.pi * torque_motor
         TT_Sim['P']['Motor'] = TT_Sim['P']['Mech'] + TT_Sim['P']['MotorLosses']
         TT_Sim['P']['Drive'] = TT_Sim['P']['Motor'] + TT_Sim['P']['DriveLosses']
@@ -839,6 +839,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
             print('Out of battery, corner simulation ABORTED')
         return TT_Sim
     else:
+        j_mot_to_wheel = np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor']
         TT_Sim['ERROR']['LVC'] = 0
         corner_index = np.arange(locsmin[c], locsmin[c + 1] - 1)
         # corner_index_end = locsmin[c + 1]
@@ -901,7 +902,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         G.append(fast_interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
         A.append(fast_interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
         lean.append(0.0)
-        R.append(TT_Sim['constants']['r'] - 0.12 * (1 - np.cos(A[-1])))
+        R.append(tyre_r_from_lean(TT_Sim['constants']['r'], 0.11, A[-1]))  # BAAAAAAD - VARIABLE NEEDED FOR TYRE
         H.append(fast_interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
 
         T_motor.append(fast_interp(V[-1] / R[-1] * TT_Sim['N'][0] / TT_Sim['N'][1], TT_Sim['motor']['w'],
@@ -914,37 +915,34 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
             T_motor[-1] = to_max
 
         J_l.append(TT_Sim['constants']['m'] * R[-1] ** 2)
-        J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] +
-                   np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor'])  # J referred to wheel
+        J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] + j_mot_to_wheel)  # J referred to wheel
 
         solver = ode(motorbike_mech4)
         solver.set_integrator('vode', with_jacobian=False)
         solver.set_initial_value(V[0], t[0])
-        solver.set_f_params(R[-1], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'], J_r[-1], TT_Sim['constants']['area'],
-                            TT_Sim['constants']['m'], TT_Sim['constants']['p_tyre'], T_motor[-1], TT_Sim['N'][1], TT_Sim['N'][0], G[-1])
+        solver.set_f_params(R[-1], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'], J_r[-1],
+                            TT_Sim['constants']['area'], TT_Sim['constants']['m'], TT_Sim['constants']['p_tyre'],
+                            T_motor[-1], TT_Sim['N'][1], TT_Sim['N'][0], G[-1])
 
         # print(t[0], V[-1], D[-1], G[-1], ,T_motor[-1], J_r[-1], A[-1], R[-1])
         # corner_index2 = np.arange(locsmin[c], locsmin[c + 3] - 1)
         wheelie = False
         # heading_interp = interpolate.interp1d(Course_map.dist, Course_map.heading)
-
-        for time in t[1:]:
+        timr = 0
+        for times in t[1:]:
             if D[-1] < Ref_Race.Distance[int(corner_index[-1])]:
-                V.append(solver.integrate(time))
+                V.append(solver.integrate(times))
                 G.append(fast_interp(D[-1], Course_map.dist, Course_map.gradient, 0, 0))
                 A.append(fast_interp(D[-1], Course_map.dist, Course_map.lean, 0, 0))
-                R.append(TT_Sim['constants']['r'] - 0.11 * (1 - np.cos(A[-1])))
-                if c == 0:
-                    R[-1] = TT_Sim['constants']['r']
+                if c == 0:  # No lean on start line
+                    R.append(TT_Sim['constants']['r'])
+                else:
+                    R.append(tyre_r_from_lean(TT_Sim['constants']['r'], 0.11, A[-1]))
                 w_m_now = V[-1] / R[-1] * TT_Sim['N'][0] / TT_Sim['N'][1]
                 T_motor.append(fast_interp(w_m_now, TT_Sim['motor']['w'], TT_Sim['motor']['t'],
                                            T_motor[-1] / 2, T_motor[-1] / 2))
 
                 # Limit motor torque for wheelies
-                #to_max_wheelie = wheelie_torque_limit(TT_Sim, R[-1], V[-1])
-                #to_max_friction = TT_Sim['constants']['mu_tyre'] * TT_Sim['constants']['m'] * 9.81 * R[-1] * TT_Sim['N'][1] / TT_Sim['N'][0]
-                #to_max = min(to_max_wheelie, to_max_friction)
-                # print('max torque = %d' % to_max_wheelie + ',%d' % to_max_friction + ',%d' % to_max)
                 to_max = C_torque_limits(R[-1], V[-1], TT_Sim['N'][1], TT_Sim['N'][0], TT_Sim['constants']['m'],
                                          TT_Sim['constants']['b'], TT_Sim['constants']['h'], TT_Sim['constants']['rho'],
                                          TT_Sim['constants']['cd'], TT_Sim['constants']['area'],
@@ -954,50 +952,39 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
                     T_motor[-1] = to_max
                     wheelie = True
 
-                # Ramp motor torque by rider
-                if (time - t[0] < ramp_time) & (c != 0) & (TT_Sim['v_flag'] == -1):  # ramp unless startline or missed corner
-                    tramp = ramp_start + (1 - ramp_start) * (time - t[0]) / ramp_time
-                    T_motor[-1] *= tramp
-                    #  print(time, time-t[0], tramp)
-
+                # Ramp motor torque by rider, unless startline or missed corner
+                #timrs = time.time()
+                # this if takes about 0.5s exec time over TT lap! code inside neglegible
+                if (times - t[0] < ramp_time) & (c != 0) & (TT_Sim['v_flag'] == -1):
+                    T_motor[-1] *= ramp_start + (1 - ramp_start) * (times - t[0]) / ramp_time
+                #timr += time.time()-timrs
                 # Limit motor torque for field weakening
                 # T_motor[-1], Id_new, Vdc_new = torque_fw(TT_Sim, T_motor[-1], T_motor[-2], w_m_now, Vdc[-1], TT_Sim['Vdc_sim'][c])
                 # print('T pre fw:' + str(T_motor[-1]) + 'Rpm' + str(w_m_now*30/np.pi))
-                T_motor[-1], id_new, vdc_new = C_torque_fw(T_motor[-1], T_motor[-2], w_m_now, Vdc[-1], TT_Sim['Vdc_sim'][c], fw_vars, TT_Sim['motor']['co'])
+                T_motor[-1], id_new, vdc_new = C_torque_fw(T_motor[-1], T_motor[-2], w_m_now, Vdc[-1],
+                                                           TT_Sim['Vdc_sim'][c], fw_vars, TT_Sim['motor']['co'])
                 Id.append(id_new)
                 Vdc.append(vdc_new)
                 # print('T postfw:' + str(T_motor[-1]))
 
                 if calibration_mode:
-                    T_motor[-1] = motor_torque(TT_Sim['motor']['co'], fast_interp(time, Ref_Race.t, Ref_Race.Iq, 0, 0))
+                    T_motor[-1] = motor_torque(TT_Sim['motor']['co'], fast_interp(times, Ref_Race.t, Ref_Race.Iq, 0, 0))
                     Id[-1] = 0
                     # print(T_motor[-1])
                 # print('Torque = ' + str(T_motor[-1]))
 
                 J_l.append(TT_Sim['constants']['m'] * R[-1] ** 2)
-                J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] +
-                           np.square(TT_Sim['N'][0] / TT_Sim['N'][1]) * TT_Sim['J']['motor'])  # J ref to wheel
+                J_r.append(2 * TT_Sim['J']['wheel'] + J_l[-1] + j_mot_to_wheel)  # J ref to wheel
                 solver.set_f_params(R[-1], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'], J_r[-1],
                                     TT_Sim['constants']['area'], TT_Sim['constants']['m'],
                                     TT_Sim['constants']['p_tyre'], T_motor[-1], TT_Sim['N'][1], TT_Sim['N'][0], G[-1])
-                dD = (V[-1] + V[-2]) * dt_a / 2.0
-                D.append(D[-1] + dD)
+                D.append(C_dist_calc(D[-1], V[-1], V[-2], dt_a))
 
                 H.append(fast_interp(D[-1], Course_map.dist, Course_map.heading, 0, 0))
-                #  H.append(heading_interp(D[-1]))
-                dH = H[-1] - H[-2]
-                if dH > np.pi / 2:
-                    dH -= np.pi
-                if dH < -np.pi / 2:
-                    dH += np.pi
-                w = dH / dt_a
-                a_lateral = V[-1] * w
-                lean.append(np.arctan(a_lateral / 9.81))
+                lean.append(C_lean_calc(V[-1], H[-1] - H[-2], dt_a))
 
                 # print(D[-1], H[-1], V[-1], lean[-1]*180/np.pi, A[-1]*180/np.pi)
-                # print(time, V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
-                # todo put field weakening calculation in here? include IR drop at least.
-                # Could just calc. motor curve for two adjacent points
+                # print(times, V[-1], D[-1], G[-1], T_motor[-1], J_r[-1], A[-1], R[-1])
                 if not solver.successful():
                     print('Warning: integration not successful')
             else:
@@ -1014,6 +1001,9 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
                 Id.append(0)
         if wheelie & (verbosity > 1):
             print('Wheelie alert!')
+        # print('duration = %.4f s' % timr)#(time.time() - timr))
+
+
         # V = np.squeeze(V)
         # D = np.squeeze(Ref_Race.Distance[corner_index[0]] + integrate.cumtrapz(V, t, initial=0))
         V = np.squeeze(V)
@@ -1085,29 +1075,23 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
 
         v_max = max(V) * 1.1  # Need to stop simulating a bit after intersection, for gradient delta V
         # print('v_max = ', v_max, 't0 = ', t[0])
-        for time in t[1:]:
+
+        for times in t[1:]:
             if V2[-1] >= v_max:
                 # print('Simulating too far')
                 # better way would be to look at 'time' and fill these arrays in one go, then quit loop
                 V2.append(v_max)  # would be neater to break the loop here, but messes up the array lengths
-                D2.append(D2[-1] + (V2[-1] + V2[-2]) * -dt_b / 2.0)
+                D2.append(C_dist_calc(D2[-1], V2[-1], V2[-2], -dt_b))
                 H2.append(H2[-1])
                 lean2.append(lean2[-1])
             else:
-                V2.append(solver.integrate(time))
+                V2.append(solver.integrate(times))
                 if not solver.successful():
                     print('Warning: integration not successful')
-                D2.append(D2[-1] + (V2[-1] + V2[-2]) * -dt_b / 2.0)
+                D2.append(C_dist_calc(D2[-1], V2[-1], V2[-2], -dt_b))
                 G2.append(fast_interp(D2[-1], Course_map.dist, Course_map.gradient, 0, 0))
                 H2.append(fast_interp(D2[-1], Course_map.dist, Course_map.heading, 0, 0))
-                dH = -1 * (H2[-1] - H2[-2])
-                if dH > np.pi / 2:
-                    dH -= np.pi
-                if dH < -np.pi / 2:
-                    dH += np.pi
-                w = dH / dt_a
-                a_lateral = V2[-1] * w
-                lean2.append(np.arctan(a_lateral / 9.81))
+                lean2.append(C_lean_calc(V2[-1], H2[-2] - H2[-1], dt_b))
                 # print('V2 = ', V2[j], 't = ', t[j])
                 # TWO THINGS TO LIMIT by: stoppie and friction
                 # [torque_MaxRear, torque_MaxFront] = wheel_forces(TT_Sim['Distance'], 1.415, TT_Sim['constants']['h'],
@@ -1122,6 +1106,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
                                     TT_Sim['constants']['p_tyre'], TBrake, TBrake_t, TT_Sim['N'][1], TT_Sim['N'][0],
                                     e_chain, G[-1])
 
+
         V2 = np.squeeze(V2)
         D2 = np.squeeze(D2)
         # D2 = np.squeeze(Ref_Race.Distance[corner_index[-1]] + integrate.cumtrapz(V2, t, initial=0))
@@ -1129,7 +1114,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         # T2 = np.flipud(t)
         D2 = np.flipud(D2)
         V2 = np.flipud(V2)
-        MOTORSPEED2 = V2 / (1.0 / 60 * TT_Sim['N'][1] / TT_Sim['N'][0] * 2 * np.pi * TT_Sim['constants']['r'])  # in rpm
+        MOTORSPEED2 = V2 / (1.0 / 30 * TT_Sim['N'][1] / TT_Sim['N'][0] * np.pi * TT_Sim['constants']['r'])  # in rpm
         lean2 = np.flipud(lean2)
         # gradientt = np.flipud(gradientt)
         # gradient = np.flipud(graidient)
@@ -1140,7 +1125,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         #  plt.xlabel('Distance')
         #  plt.ylabel('v')
         #  plt.xlim(D[0], D[-1])
-        # plt.plot(T2, V2, time[corner_index], v[corner_index], gradientt, gradient * 100)
+        # plt.plot(T2, V2, times[corner_index], v[corner_index], gradientt, gradient * 100)
         # plt.xlim(gradientt[0], gradientt[-1])
         # plt.ylim(-10, 100)
         # fig3.show()
@@ -1223,8 +1208,8 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
             fig6.show()
             plt.show()
 
-        tgained = Ref_Race.t[int(corner_index[-1])] - Tboth[-1]
         if verbosity > 1:
+            tgained = Ref_Race.t[int(corner_index[-1])] - Tboth[-1]
             print('Time gained = %.1f s' % tgained, ' on corner %d' % c)
 
         if TT_Sim['t'].size == 0:  # if not [] == true
@@ -1255,8 +1240,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         # todo limit it due to FW
         # TT_Sim['Iq'] = torque_motor / TT_Sim['constants']['Km']
         TT_Sim['Iq'] = motor_currents(TT_Sim, torque_motor)
-        TT_Sim['Is'] = np.sqrt(TT_Sim['Id'] ** 2 + TT_Sim['Iq'] ** 2)
-        # TT_Sim['Id'] = optimize.brentq(id_fw, -1000, 0, args=(TT_Sim, Vdc[-1], TT_Sim['Rpm'] / 30 * np.pi, TT_Sim['Iq']))
+        TT_Sim['Is'] = np.sqrt(TT_Sim['Id'] ** 2 + TT_Sim['Iq'] ** 2)  # negligeble execution time
         [total_loss, resistive, moving] = motor_losses(TT_Sim['Is'], TT_Sim['Rpm'], TT_Sim['motor']['Rs'],
                                                        TT_Sim['motor']['k_rpm'][2], TT_Sim['motor']['k_rpm'][1])
         TT_Sim['P']['MotorLosses'] = total_loss
