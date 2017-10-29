@@ -37,11 +37,11 @@ import motorbike_functions as bike
 
 verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
-enable_plotting = False
+enable_plotting = True
 enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
 dummy_run = True
-calibration_mode = False
+calibration_mode = True
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
@@ -50,7 +50,7 @@ igbt = 'FS450'  # 'FF600'  # 'SEMiX603_SiC'
 
 course_speed_limit = 200 / 2.23 # 166 / 2.23
 
-track = 'TT'
+track = 'OM'
 
 if enable_plotting:
     try:
@@ -66,11 +66,11 @@ parallel_queue = 100
 #  - Release time of braking instance
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
-TT_Sim = {'N': ([83.0, 17.0]),
+TT_Sim = {'N': ([83.0, 16.0]),
           'constants': {'cd': 0.32, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
                         'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
-          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.615},
+          'brake': {'RampTime': 1.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 0},
           #'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
@@ -266,6 +266,83 @@ elif track == 'Drag':
         # CdA ??
         # regen?
     }
+elif track == 'OM':
+    # Select which corners to analyse
+    first_corner = 0  # 6#62  # 0 = first
+    last_corner = 99  # 7#63  # set to large number to use all
+    corner_delete = []
+    laps = 1
+
+    end_dist = 6600  # Distance at lap end for timing
+
+    # Export parameters
+    # filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
+    filename_exp = 'data_export/OM_test.mat'
+    # filename_exp = 'data_export/TT_SpeedLimits/Python_Sims_FW_TT_SpeedLimit_' + str(int(2.23*course_speed_limit)) + 'mph.mat'
+    # filename_exp = 'data_export/18s16p_P_T_9_various_Mr25/Python_Sim_' + motor_manufacturer + '_motor_power_varied_mph_Mr25_regen.mat'
+
+    structure_exp = 'OM'
+
+    # Import filenames
+    if enable_parallel:
+        #filename_ref_lap = 'data_import/TT_Race_2016_small.mat'
+        filename_ref_lap = 'data_import/confidential/OM_Race.mat'
+    else:
+        filename_ref_lap = 'data_import/confidential/OM_Race.mat'
+        # filename_ref_lap = 'data_import/TT_Laps_2016.mat'
+    filename_ref_map = 'data_import/confidential/OM_map_fakezerolean.mat'
+    # filename_ref_brake = 'data_import/TT_Race_2016_manual_braking_pts.mat'
+    filename_ref_brake = filename_ref_lap
+    # filename_ref_bat = 'data_import/Python_Sims_FW_TT_guessed_noregen_120_vlim.mat'
+    # filename_motor = 'data_import/MotorLAB_export.mat'
+    structure_map = 'OM_map'
+    structure_lap = 'OM'
+    var_name_brake = 'locsMin'
+    # structure_bat = 'OM_Sim'
+
+    # Reference data mechanical specifications
+    N1 = 83.0
+    N2 = 16.0
+    r = 2.04 / 2 / np.pi
+    m_ref = 290.0 + 90
+    # m_ref = 240
+    # wMotor_ref = np.array([0, 4166.7, 7333.3, 10500]) / 30 * np.pi  # Daley TTZ 2016 limits
+    # TMotor_ref = np.array([106, 106, 65.791, 45.949])
+    Ref_Race = sio.loadmat(filename_ref_lap, struct_as_record=False, squeeze_me=True)[structure_lap]
+    # v_ref = 1.0 * r * Ref_Race.Rpm / 30 * np.pi * N2 / N1
+    v_ref = Ref_Race.v
+    TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
+    TT_Sim['battery']['series'] = 168
+    TT_Sim['battery']['parallel'] = 4
+    TT_Sim['battery']['cellAh'] = 10  # -0.28
+    TT_Sim['battery']['cellVnom'] = 3.7
+    TT_Sim['battery']['cellIR'] = 0.00438
+    TT_Sim['battery']['E_density'] = 3.7 * 6 * 40 / 4.8  # 3.7*8/0.175
+    charge_ratio = 1.0  # 1.096
+    motor_mass_kf = 1
+    scrutineering_cheat = 4
+
+    #if battery_fixed:
+    #    sim = sio.loadmat(filename_ref_bat, struct_as_record=False, squeeze_me=True)[structure_bat]
+    #    TT_Sim['Vdc_sim'] = sim.Vdc_sim
+
+    variables_list = {
+        'P_max': np.arange(110, 200, 5) * 1e3,
+        #'T_max': np.arange(180, 300, 10),
+        'T_max': np.arange(260, 300, 10),
+        # 'n0': range(42, 84, 41),
+        'n1': range(16, 25, 1),
+        'v_max': np.arange(148, 181, 1) / 2.23,
+        # 'parallel': np.arange(4.5, 7, 0.5),
+        # 'series': np.arange(141, 183, 3)
+        'series': np.arange(162, 165, 3),
+        # 'L_core': range(100, 525, 25),
+        # 'L_core': np.arange(150, 200, 25),
+        # 'turns': np.arange(8.5, 16.5, 2),
+        # 'drives': range(1, 3),
+        # CdA ??
+        # regen?
+    }
 
 # Model bike electrical specifications
 cell_ve = sio.loadmat('data_import/cell_V_E.mat', struct_as_record=False, squeeze_me=True)['cell_ve']
@@ -277,7 +354,7 @@ TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, verbosity)[0]
 #################################
 
 if TT_Sim['motor']['manufacturer'] == 'Parker':
-    TT_Sim['motor']['N'] = 22.5  # *114/171  # p=18.5, r=16.5, v=11.5
+    TT_Sim['motor']['N'] = 18.5  # *114/171  # p=18.5, r=16.5, v=11.5
     TT_Sim['motor']['L_core'] = 150.0
 
 TT_Sim = bike.motor_sizing(TT_Sim)

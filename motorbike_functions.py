@@ -454,7 +454,7 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
     corner_index = np.arange(locsmin[c], locsmin[c + 1] - 1)
     # corner_index_end = locsmin[c + 1]
     dt_a = dt[0]
-    dt_b = dt[1]
+    # dt_b = dt[1]
     ramp_start = ramp[0]
     ramp_time = ramp[1]    # Throttle ramp settings
 
@@ -601,6 +601,7 @@ def corner_sim_single(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, ena
 
         # print('dtB = ', str(t[1] - t[0]))
         t = Ref_Race.t[corner_index[-1]] + np.linspace(0, 2 * dt_b * (1 - corner_index.size), 2 * corner_index.size)
+        dt_b = t[0] - t[1]
         # print('dtB = ', str(t[1] - t[0]))
 
         TBrake_t = t
@@ -1026,7 +1027,8 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
 
         # print('dtB = ', str(t[1] - t[0]))
         t = Ref_Race.t[int(corner_index[-1])] + np.linspace(0, 3 * dt_b * (1 - corner_index.size), 5 * corner_index.size)
-        # print('dtB = ', str(t[1] - t[0]))
+        dt_b = t[0] - t[1]
+        # print('dtB = ', dt_b)
 
         TBrake_t = t
         TBrake = -TT_Sim['brake']['PeakTorque'] * TT_Sim['N'][1] / TT_Sim['N'][0] * np.ones(t.shape)
@@ -1036,7 +1038,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         TBrake = np.flipud(TBrake)
 
         # plt.close()
-        # plt.plot(Tbraket, Tbrake)
+        # plt.plot(TBrake_t, TBrake)
         # plt.show()
 
         v0 = v[int(corner_index[-1])]
@@ -1071,7 +1073,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         solver.set_f_params(TT_Sim['constants']['r'], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'],
                             TT_Sim['J']['r'], TT_Sim['constants']['area'], TT_Sim['constants']['m'],
                             TT_Sim['constants']['p_tyre'], TBrake, TBrake_t, TT_Sim['N'][1], TT_Sim['N'][0], e_chain,
-                            G[-1])
+                            G2[-1])
 
         v_max = max(V) * 1.1  # Need to stop simulating a bit after intersection, for gradient delta V
         # print('v_max = ', v_max, 't0 = ', t[0])
@@ -1104,7 +1106,12 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
                 solver.set_f_params(TT_Sim['constants']['r'], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'],
                                     TT_Sim['J']['r'], TT_Sim['constants']['area'], TT_Sim['constants']['m'],
                                     TT_Sim['constants']['p_tyre'], TBrake, TBrake_t, TT_Sim['N'][1], TT_Sim['N'][0],
-                                    e_chain, G[-1])
+                                    e_chain, G2[-1])
+                # print('t =', times, 'v = ', np.squeeze(V2[-1]), 'T =', fast_interp(times, TBrake_t, TBrake, 0, 0), 'Dist', D2[-1])
+                #print(TT_Sim['constants']['r'], TT_Sim['constants']['rho'], TT_Sim['constants']['cd'],
+                #                    TT_Sim['J']['r'], TT_Sim['constants']['area'], TT_Sim['constants']['m'],
+                #                    TT_Sim['constants']['p_tyre'], TT_Sim['N'][1], TT_Sim['N'][0],
+                #                    e_chain, G2[-1])
 
 
         V2 = np.squeeze(V2)
