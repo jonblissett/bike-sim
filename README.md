@@ -5,7 +5,7 @@ effects. It is particularly suited to lap time simulation and system optimisatio
 
 Use Python2.7, requires the following packages:
 
-matplotlib, numpy, scipy, cython, time, ipyparallel
+matplotlib, numpy, scipy, cython, ipyparallel
 
 Commonnly used python functions are compiled in C using Cython for speed. These .pyx files must first be compiled 
 with Cython uing the following commands:
