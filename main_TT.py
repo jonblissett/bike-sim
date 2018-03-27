@@ -35,18 +35,18 @@ import motorbike_functions as bike
 # TODO check if regen chain efficiency is correct?
 # TODO try torque vs speed as a ramp? as in like the power requirement
 
-verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
+verbosity = 2  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
 enable_plotting = True
 enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
 dummy_run = False
-calibration_mode = False
+calibration_mode = True
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
 motor_manufacturer = 'Parker'  # 'me', 'Emrax'
-igbt = 'SEMiX603_SiC'  # 'FF600'  # 'SEMiX603_SiC'
+igbt = 'FS900'  # 'FF600'  # 'SEMiX603_SiC'
 
 course_speed_limit = 165 / 2.23
 
@@ -66,11 +66,11 @@ parallel_queue = 100
 #  - Release time of braking instance
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
-TT_Sim = {'N': ([83.0, 17.0]),
-          'constants': {'cd': 0.32, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
-                        'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
+TT_Sim = {'N': ([83.0, 19.0]),
+          'constants': {'cd': 0.36, 'area': 1, 'rho': 1.204, 'm': 270.0 + 90, 'p_tyre': 1.9,
+                        'r': 2.05 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
-          'brake': {'RampTime': 1.6, 'PeakTorque': 1100.0, 'LimitTorque': 300.0, 'k_wt': 0.615},
+          'brake': {'RampTime': 1.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           #  'brake': {'RampTime': 2.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 1.615},
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
@@ -84,8 +84,12 @@ TT_Sim = {'N': ([83.0, 17.0]),
 if track == 'TT':
     # Select which corners to analyse
     first_corner = 0  # 6#62  # 0 = first
-    last_corner = 999  # 7#63  # set to large number to use all
-    corner_delete = [11, 60, 93, 106, 107]
+    last_corner = 9  # 7#63  # set to large number to use all
+    if calibration_mode:
+        corner_delete = []
+    else:
+        corner_delete = [11, 60, 93, 106, 107]
+
     laps = 1
 
     end_dist = 60.7e3  # Distance at lap end for timing
@@ -101,10 +105,16 @@ if track == 'TT':
         #filename_ref_lap = 'data_import/TT_Race_2016_small.mat'
         filename_ref_lap = 'data_import/TT_Race_Louis.mat'
     else:
-        filename_ref_lap = 'data_import/TT_Race_Louis.mat'
+        if calibration_mode:
+            filename_ref_lap = 'data_import/confidential/TT_Laps_2016'
+        else:
+            filename_ref_lap = 'data_import/TT_Race_Louis.mat'
+
     filename_ref_map = 'data_import/TT_map_zerolean.mat'
-    # filename_ref_brake = 'data_import/TT_Race_2016_manual_braking_pts.mat'
-    filename_ref_brake = 'data_import/TT_Race_Louis_manual_braking_pts.mat'
+    if calibration_mode:
+        filename_ref_brake = 'data_import/confidential/TT_Race_2016_manual_braking_pts.mat'
+    else:
+        filename_ref_brake = 'data_import/TT_Race_Louis_manual_braking_pts.mat'
     filename_ref_bat = 'data_import/Python_Sims_FW_TT_guessed_noregen_120_vlim.mat'
     # filename_motor = 'data_import/MotorLAB_export.mat'
     structure_map = 'TT_map'
@@ -115,16 +125,18 @@ if track == 'TT':
     # Reference data mechanical specifications
     N1 = 83.0
     N2 = 19.0
-    r = 2.16 / 2 / np.pi
+    r = 2.05 / 2 / np.pi
     m_ref = 270.0 + 90
     # m_ref = 240
     # wMotor_ref = np.array([0, 4166.7, 7333.3, 10500]) / 30 * np.pi  # Daley TTZ 2016 limits
     # TMotor_ref = np.array([106, 106, 65.791, 45.949])
     Ref_Race = sio.loadmat(filename_ref_lap, struct_as_record=False, squeeze_me=True)[structure_lap]
-    # v_ref = 1.0 * r * Ref_Race.Rpm / 30 * np.pi * N2 / N1
-    v_ref = Ref_Race.vGPS
+    if calibration_mode:
+        v_ref = v_ref = 1.0 * r * Ref_Race.Rpm / 30 * np.pi * N2 / N1
+    else:
+        v_ref = Ref_Race.vGPS
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
-    TT_Sim['battery']['series'] = 168
+    TT_Sim['battery']['series'] = 120
     TT_Sim['battery']['parallel'] = 4
     TT_Sim['battery']['cellAh'] = 10
     TT_Sim['battery']['cellVnom'] = 3.7
@@ -270,7 +282,7 @@ TT_Sim = bike.charge_battery(TT_Sim, charge_ratio)
 TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, verbosity)[0]
 #################################
 
-TT_Sim['motor']['N'] = 16.5
+TT_Sim['motor']['N'] = 10.5
 TT_Sim['motor']['L_core'] = 150.0
 
 TT_Sim = bike.motor_sizing(TT_Sim)
@@ -298,7 +310,7 @@ TT_Sim['drive']['I_max'] = 801  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
 # TT_Sim['motor']['w'] = np.array([0, 4166.7, 7333.3, 10500]) / 30 * np.pi  # Daley TTZ 2016 limits
 # TT_Sim['motor']['t'] = np.array([106, 106, 65.791, 45.949])
 # TT_Sim['motor']['p'] = TT_Sim['motor']['w'] * TT_Sim['motor']['t']
-# SETTING LIKE THIS DOESN@T WORK AS THEY ARE RECALCULATED
+# SETTING LIKE THIS DOESN'T WORK AS THEY ARE RECALCULATED
 
 # END OF USER PARAMETERS
 
