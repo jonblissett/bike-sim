@@ -61,11 +61,11 @@ def spec_igbt(igbt):
         ret = {'Uce0': 0.8, 'Ud0': 1.0, 'Rc': 1.65e-3, 'Rd': 2.6e-3, 'Eon': 17e-3, 'Eoff': 72e-3, 'Ed': 0,
                           'Vce_test': 600.0, 'Ic_test': 600.0, 'Fsw': 12e3}
     elif igbt == 'FS900':  # copied diodes from f800 as no data
-        ret = {'Uce0': 0.7, 'Ud0': 1.0, 'Rc': 0.67e-3, 'Rd': 0.54e-3, 'Eon': 32e-3, 'Eoff': 34e-3,
-                          'Ed': 14e-3,
+        ret = {'Uce0': 0.7, 'Ud0': 1.0, 'Rc': 0.67e-3, 'Rd': 0.54e-3, 'Eon': 34e-3, 'Eoff': 36.5e-3,
+                          'Ed': 17.5e-3,
                           'Vce_test': 400.0, 'Ic_test': 550.0, 'Fsw': 12e3}
     elif igbt == 'CAS325':
-        ret = {'Uce0': 0.0, 'Ud0': 0.75, 'Rc': 6.5e-3, 'Rd': 4.5e-3, 'Eon': 5.6e-3, 'Eoff': 3.7e-3, 'Ed': 0,
+        ret = {'Uce0': 0.0, 'Ud0': 0.75, 'Rc': 6.5e-3, 'Rd': 4.5e-3, 'Eon': 5.6e-3, 'Eoff': 3.7e-3, 'Ed': 2.8,
                           'Vce_test': 600.0, 'Ic_test': 300.0, 'Fsw': 12e3}
     elif igbt == 'FS450':
         ret = {'Uce0': 0.8, 'Ud0': 0.8, 'Rc': 2.5e-3, 'Rd': 1.7e-3, 'Eon': 40.5e-3, 'Eoff': 56.5e-3,
@@ -1525,6 +1525,7 @@ def motor_torque(co, i):
 
 
 def motor_current(p, torque):
+    print('motor_current() may not work in some cases')
     if torque > 0:
         roots = sorted(np.roots(p[:3] + [-1.0 * torque]))[1]
     else:
@@ -1638,7 +1639,22 @@ def motor_sizing(sim):
             restore = True
         motor_import = loadmat('data_import/' + sim['file']['motorimport'])
 
+        imp_turns = motor_import['motor']['N']
+        act_turns = sim['motor']['N']
+        # imp Ld,Lq,co
+
         sim['motor'] = motor_import['motor']
+        sim['motor']['N'] = act_turns
+        print('NEED TO ADJUST Rs, for imported motor')
+        sim['motor']['Ld'] *= (act_turns / imp_turns) ** 2
+        sim['motor']['Lq'] *= (act_turns / imp_turns) ** 2
+        sim['motor']['co'] *= act_turns / imp_turns
+        sim['motor']['i_rms_con'] *= imp_turns / act_turns
+        sim['motor']['i_rms_pk'] *= imp_turns / act_turns
+        sim['motor']['Rs'] *= imp_turns / act_turns # r_end_turns + r_mid_turns * l_core / 150
+
+        print('check int division?')
+
         sim['motor']['manufacturer'] = 'import'  # just to make sure, else successive calls will fail
         if 'co' not in sim['motor']:
             print('ERROR, motor saturation co-efficients missing')
@@ -1716,7 +1732,8 @@ def scrutineering(sim, charge_ratio):
     sim = weigh(sim)
 
     # Electrical scrutineering
-    if motor_current(sim['motor']['co'], sim['motor']['T_max']) / sim['drive']['n'] < sim['drive']['I_max']:
+    if motor_current_newton(sim['motor']['co'], sim['motor']['T_max'], 0, 0.01) / sim['drive']['n'] < sim['drive']['I_max']:
+        #print(motor_current_newton(sim['motor']['co'], sim['motor']['T_max'], 0, 0.01))
         # Check if motor current required for specified torque is within drive rating
         #print('N= ' + str(sim['motor']['N']) + str(sim['drive']['n']) + ' Idrive=' + str(motor_current(sim['motor']['co'], sim['motor']['T_max']) / sim['drive']['n']))
         sim['scrutineering']['score'] -= 1
