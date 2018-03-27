@@ -111,7 +111,7 @@ plt.setp(ax1.get_yticklabels(), fontsize=16)
 
 #plt.title('Motor Power vs Time')
 plt.show()
-fig.savefig('Python_stack_losses.png')
+#fig.savefig('Python_stack_losses.png')
 
 
 fig, ax1 = plt.subplots()

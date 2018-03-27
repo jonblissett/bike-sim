@@ -22,7 +22,7 @@
 \begingroup%
 \makeatletter%
 \begin{pgfpicture}%
-\pgfpathrectangle{\pgfpointorigin}{\pgfqpoint{8.000000in}{6.000000in}}%
+\pgfpathrectangle{\pgfpointorigin}{\pgfqpoint{6.400000in}{4.800000in}}%
 \pgfusepath{use as bounding box, clip}%
 \begin{pgfscope}%
 \pgfsetbuttcap%
@@ -34,9 +34,9 @@
 \pgfsetstrokecolor{currentstroke}%
 \pgfsetdash{}{0pt}%
 \pgfpathmoveto{\pgfqpoint{0.000000in}{0.000000in}}%
-\pgfpathlineto{\pgfqpoint{8.000000in}{0.000000in}}%
-\pgfpathlineto{\pgfqpoint{8.000000in}{6.000000in}}%
-\pgfpathlineto{\pgfqpoint{0.000000in}{6.000000in}}%
+\pgfpathlineto{\pgfqpoint{6.400000in}{0.000000in}}%
+\pgfpathlineto{\pgfqpoint{6.400000in}{4.800000in}}%
+\pgfpathlineto{\pgfqpoint{0.000000in}{4.800000in}}%
 \pgfpathclose%
 \pgfusepath{fill}%
 \end{pgfscope}%
