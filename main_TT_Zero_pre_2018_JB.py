@@ -45,12 +45,12 @@ calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
-motor_manufacturer = 'import'  # 'me', 'Emrax'
+motor_manufacturer = 'Parker'  # 'me', 'Emrax'
 igbt = 'FS450'  # 'FF600'  # 'SEMiX603_SiC'
 
-course_speed_limit = 160 / 2.23 # 166 / 2.23
+course_speed_limit = 2*155 / 2.23 # 166 / 2.23
 
-track = 'TT'
+track = 'Drag'
 
 if enable_plotting:
     try:
@@ -66,8 +66,8 @@ parallel_queue = 100
 #  - Release time of braking instance
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
-TT_Sim = {'N': ([83.0, 17.0]),
-          'constants': {'cd': 0.35, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
+TT_Sim = {'N': ([83.0, 20.0]),
+          'constants': {'cd': 0.35*0.8, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
                         'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
           'brake': {'RampTime': 1.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 0},
@@ -75,9 +75,9 @@ TT_Sim = {'N': ([83.0, 17.0]),
           'battery': {},
           'motor': {'manufacturer': motor_manufacturer},
           'drive': {},
-          'IGBT': bike.spec_igbt(igbt),
+          'IGBT': {},
           'v_max': course_speed_limit,
-          'file': {'motorimport': '/confidential/MotorLAB_export.mat'}#_Mr25
+          'file': {'motorimport': '/confidential/MotorLAB_export_301117.mat'}#_Mr25
           }
 
 if track == 'TT':
@@ -91,7 +91,7 @@ if track == 'TT':
 
     # Export parameters
     # filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
-    filename_exp = 'data_export/TT_Sevcon_N_22_5/Python_Sims_FW_TT_2018_vlowVel.mat'
+    filename_exp = 'data_export/JB_301117/Python_Sims_FW_TT_2018_301117motor.mat'
     # filename_exp = 'data_export/TT_SpeedLimits/Python_Sims_FW_TT_SpeedLimit_' + str(int(2.23*course_speed_limit)) + 'mph.mat'
     # filename_exp = 'data_export/18s16p_P_T_9_various_Mr25/Python_Sim_' + motor_manufacturer + '_motor_power_varied_mph_Mr25_regen.mat'
 
@@ -133,7 +133,7 @@ if track == 'TT':
     else:
         v_ref = Ref_Race.vGPS
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
-    TT_Sim['battery']['series'] = 168
+    TT_Sim['battery']['series'] = 171
     TT_Sim['battery']['parallel'] = 4
     TT_Sim['battery']['cellAh'] = 10  # -0.28
     TT_Sim['battery']['cellVnom'] = 3.7
@@ -148,15 +148,15 @@ if track == 'TT':
         TT_Sim['Vdc_sim'] = sim.Vdc_sim
 
     variables_list = {
-        'P_max': np.arange(110, 200, 5) * 1e3,
+        'P_max': np.arange(200, 205, 5) * 1e3,
         #'T_max': np.arange(180, 300, 10),
-        'T_max': np.arange(260, 300, 10),
+        'T_max': np.arange(250, 550, 50),
         # 'n0': range(42, 84, 41),
-        'n1': range(16, 25, 1),
-        'v_max': np.arange(148, 181, 1) / 2.23,
+        'n1': range(16, 33, 1),
+        'v_max': np.arange(148, 176, 1) / 2.23,
         # 'parallel': np.arange(4.5, 7, 0.5),
         # 'series': np.arange(141, 183, 3)
-        'series': np.arange(162, 165, 3),
+        'series': np.arange(159, 174, 3),
         # 'L_core': range(100, 525, 25),
         # 'L_core': np.arange(150, 200, 25),
         # 'turns': np.arange(8.5, 16.5, 2),
@@ -225,8 +225,9 @@ elif track == 'Drag':
     first_corner = 0
     last_corner = 1
     laps = 1
+    corner_delete = []
 
-    end_dist = 1609.3 # Distance at lap end for timing
+    end_dist = 1609.34  # Distance at lap end for timing
 
     # Export parameters
     filename_exp = 'data_export/Python_sim_Drag.mat'
@@ -240,7 +241,7 @@ elif track == 'Drag':
     structure_lap = 'Drag_Race'
     var_name_brake = 'locsMin'
 
-    TT_Sim['N'] = ([83.0, 21.0])
+    TT_Sim['N'] = ([83.0, 29.0])
 
     # Reference data mechanical specifications
     N1 = 83.0
@@ -251,7 +252,7 @@ elif track == 'Drag':
     Ref_Race = sio.loadmat(filename_ref_lap, struct_as_record=False, squeeze_me=True)[structure_lap]
     v_ref = Ref_Race.v
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 250.0 * 1.01, 'volt_limit': 600.0}
-    TT_Sim['battery']['series'] = 120
+    TT_Sim['battery']['series'] = 168
     TT_Sim['battery']['parallel'] = 2
     TT_Sim['battery']['cellAh'] = 8
     TT_Sim['battery']['cellVnom'] = 3.8
@@ -360,9 +361,13 @@ TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, verbosity)[0]
 #################################
 
 if TT_Sim['motor']['manufacturer'] == 'Parker':
-    TT_Sim['motor']['N'] = 18.5 # 18.5  # *114/171  # p=18.5, r=16.5, v=11.5
+    TT_Sim['motor']['N'] = 18.5  # 18.5  # *114/171  # p=18.5, r=16.5, v=11.5
     TT_Sim['motor']['L_core'] = 150.0
+if TT_Sim['motor']['manufacturer'] == 'import':
+    TT_Sim['motor']['N'] = 7.0
+    print('MOTOR TURNS SET TO 7')
 
+TT_Sim['IGBT'] = bike.spec_igbt(igbt)
 TT_Sim = bike.motor_sizing(TT_Sim)
 TT_Sim = bike.set_speed_limit(TT_Sim, TT_Sim['v_max'])
 # w_max = 10400 / 30 * np.pi  # 130 / 2.23 * TT_Sim['N'][0] / TT_Sim['N'][1] / TT_Sim['constants']['r']
@@ -370,9 +375,9 @@ TT_Sim = bike.set_speed_limit(TT_Sim, TT_Sim['v_max'])
 # TT_Sim['motor']['W_lim'] = 10600 / 30 * np.pi # TT_Sim['motor']['W_speed_lim'] * 1.15  # 8400 / 30 * np.pi
 # print('SPEED LIMIT SET GENTLY')
 
-TT_Sim['motor']['T_max'] = 260  #  bike.motor_torque(TT_Sim['motor']['co'], 400*1.4146) # *171/114)  # TT_Sim['motor']['T_pk']
+TT_Sim['motor']['T_max'] = 257  #  bike.motor_torque(TT_Sim['motor']['co'], 400*1.4146) # *171/114)  # TT_Sim['motor']['T_pk']
 print('Motor torque = ' + str(TT_Sim['motor']['T_max']) + ' Nm')
-TT_Sim['motor']['P_max'] = 130e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
+TT_Sim['motor']['P_max'] = 180e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
 [TT_Sim['motor']['w'], TT_Sim['motor']['t'], TT_Sim['motor']['p']] = bike.motor_torque_speed(TT_Sim['motor']['T_max'],
                                                                                              TT_Sim['motor']['W_speed_lim'],
                                                                                              TT_Sim['motor']['P_max'],
@@ -381,7 +386,7 @@ TT_Sim['motor']['P_max'] = 130e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
 
 TT_Sim['drive']['n'] = 2.0
 TT_Sim['drive']['m'] = 5.0
-TT_Sim['drive']['I_max'] = 450 * 1.4146  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
+TT_Sim['drive']['I_max'] = 450 / 2 * 1.4146  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
 
 # TT_Sim['motor']['w'] = np.array([0, 4166.7, 7333.3, 10500]) / 30 * np.pi  # Daley TTZ 2016 limits
 # TT_Sim['motor']['t'] = np.array([106, 106, 65.791, 45.949])
