@@ -1,9 +1,9 @@
 clear all
 close all
 
-file_exp = '../data_export/splat.dat'
+file_exp = '../data_export/splat2.dat'
 
-load '../data_export/Python_Sim_import_motor_power_varied_mph_Mr25.mat'
+load '../data_export/JB_301117/Python_Sims_FW_TT_2018_301117motor.mat'
 
 t = TT_Sim.t;
 rpm = TT_Sim.Rpm;
@@ -26,7 +26,7 @@ torque_in = interp1(t,torque,t_in);
 
 for i = 1:length(t_in)
   fprintf(fi, '%.2f\t%.0f\t%.0f\n',t_in(i),torque_in(i),rpm_in(i));
-endfor
+end
 
 fclose(fi);
 
