@@ -18,7 +18,7 @@
 import numpy as np
 import scipy.io as sio
 from scipy import signal
-from os import remove, rename, getcwd
+from os import remove, rename, getcwd, path
 from itertools import product
 from itertools import izip_longest  # This is used to deal with variable length of lists
 import time
@@ -41,7 +41,7 @@ enable_plotting = True
 enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
 dummy_run = False
-calibration_mode = True
+calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
 fake_parallel = False
@@ -84,7 +84,7 @@ TT_Sim = {'N': ([83.0, 19.0]),
 if track == 'TT':
     # Select which corners to analyse
     first_corner = 0  # 6#62  # 0 = first
-    last_corner = 9  # 7#63  # set to large number to use all
+    last_corner = 999  # 7#63  # set to large number to use all
     if calibration_mode:
         corner_delete = []
     else:
@@ -520,7 +520,8 @@ else:
     TT_Sim = sio.loadmat('temp', struct_as_record=False, squeeze_me=True)['TT_Sim']
 
     if save_data_files:
-        remove(filename_exp)
+        if path.exists(filename_exp):
+            remove(filename_exp)
         rename('temp.mat', filename_exp)
         if verbosity > 0:
             print('Simulation saved to ' + str(filename_exp) + ' as structure named ' + str(structure_exp))
