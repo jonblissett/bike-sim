@@ -23,8 +23,6 @@ except:
     pass
 
 import scipy.io as sio
-from os import remove
-from scipy.integrate import odeint
 from scipy import integrate, optimize
 from scipy.integrate import ode
 from C_interp import fast_interp
@@ -32,9 +30,7 @@ from C_motorbike import chain_eff_single, motorbike_mech_base, motorbike_mech4, 
 from C_pmsm import C_id_pmsm, C_w_pmsm, C_vs_pmsm, C_v_dq_pmsm, C_motor_current_newton, C_torque_fw
 from C_losses import C_motor_losses, C_inverter_losses, C_inverter_loss
 from math import cos, atan
-import time
 # from numba import jit
-#  could call mech2 from within mech4, combine them ish?
 
 
 #def motorbike_mech4(t, v, r, rho, cd, jr, area, m, p_tyre, motor_torque, n2, n1, gradient):
