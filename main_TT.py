@@ -282,8 +282,9 @@ TT_Sim = bike.charge_battery(TT_Sim, charge_ratio)
 TT_Sim['battery']['V_max'] = bike.battery_simple(TT_Sim, 0, verbosity)[0]
 #################################
 
-TT_Sim['motor']['N'] = 10.5
-TT_Sim['motor']['L_core'] = 150.0
+if TT_Sim['motor']['manufacturer'] == 'Parker':
+    TT_Sim['motor']['N'] = 10.5
+    TT_Sim['motor']['L_core'] = 150.0
 
 TT_Sim = bike.motor_sizing(TT_Sim)
 
@@ -313,6 +314,8 @@ TT_Sim['drive']['I_max'] = 801  # THIS IS ONLY FOR SCRUTINEERING FUNCTION
 # SETTING LIKE THIS DOESN'T WORK AS THEY ARE RECALCULATED
 
 # END OF USER PARAMETERS
+if calibration_mode and enable_warnings:
+    print('Calibration mode active, torque input data must be provided')
 
 v = bike.v_tyre_load_sens(v_ref, m_ref, TT_Sim['constants']['k_tyre'], TT_Sim['constants']['m'])
 
@@ -434,20 +437,20 @@ if enable_parallel:
                     if optimise_ratio:
                         ar = view.apply_async(bike.gear_optimise, TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps,
                                               end_dist, filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                              enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                              enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                     else:
                         ar = view.apply_async(bike.lap_analyse3, TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps,
                                               end_dist, filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                              enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                              enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                 else:
                     if optimise_ratio:
                         ar = bike.gear_optimise(TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps, end_dist,
                                                 filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                                enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                                enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                     else:
                         ar = bike.lap_analyse3(TT_Sim, Ref_Race, v, first_corner, last_corner, corner_delete, laps, end_dist,
                                                filename_ref_map, filename_ref_brake, structure_map, var_name_brake,
-                                               enable_warnings, verbosity, calibration_mode, full_data_exp)
+                                               enable_warnings, verbosity, calibration_mode, full_data_exp, battery_fixed)
                 async_results.append(ar)
                 if count % parallel_queue == 0:
                     print('Waiting for results, %.1f%% completed' % (count_all / n_sims * 100))
@@ -535,7 +538,8 @@ else:
         tmax = TT_Sim.t[sum(end_dista)-1]
         print('Estimated bike mass = %.1f kg' % (TT_Sim.constants.m - 90))
         print('Motor max speed = %d rpm' % max(TT_Sim.Rpm))
-        print('Motor mass = %.1f kg' % TT_Sim.motor.m + ' + inertial mass of %.2f kg' % (TT_Sim.motor.J/(TT_Sim.constants.r ** 2)))
+        print('Motor mass = %.1f kg' % TT_Sim.motor.m + ' + inertial mass of %.2f kg' %
+              (TT_Sim.motor.J/(TT_Sim.constants.r ** 2)))
         print('Bike max speed = %.1f mph' % (max(TT_Sim.v) * 2.23))
         print('Simulated lap time = %.2f s' % tmax)
         print('Simulated lap speed = %.2f mph' % (37.733 / TT_Sim.t[-1] * 3600))

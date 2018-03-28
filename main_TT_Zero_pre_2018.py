@@ -40,7 +40,7 @@ enable_warnings = False
 enable_plotting = False
 enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
-dummy_run = True
+dummy_run = False
 calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
@@ -92,8 +92,8 @@ if track == 'TT':
     end_dist = 60.7e3  # Distance at lap end for timing
 
     # Export parameters
-    # filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
-    filename_exp = 'data_export/TT_Sevcon_N_22_5/Python_Sims_FW_TT_2018_vlowVel.mat'
+    filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
+    # filename_exp = 'data_export/TT_Sevcon_N_22_5/Python_Sims_FW_TT_2018_vlowVel.mat'
     # filename_exp = 'data_export/TT_SpeedLimits/Python_Sims_FW_TT_SpeedLimit_' + str(int(2.23*course_speed_limit)) + 'mph.mat'
     # filename_exp = 'data_export/18s16p_P_T_9_various_Mr25/Python_Sim_' + motor_manufacturer + '_motor_power_varied_mph_Mr25_regen.mat'
 
