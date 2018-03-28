@@ -38,7 +38,7 @@ import motorbike_functions as bike
 verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
 enable_plotting = False
-enable_parallel = False  # ipcluster start -n 4
+enable_parallel = True  # ipcluster start -n 4
 save_data_files = True
 dummy_run = False
 calibration_mode = False
@@ -61,7 +61,7 @@ if enable_plotting:
         pass
 
 
-parallel_queue = 100
+parallel_queue = 600
 
 # Model bike mechanical specifications
 #  Model Brake characteristic
@@ -137,7 +137,7 @@ if track == 'TT':
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
     TT_Sim['battery']['series'] = 168
     TT_Sim['battery']['parallel'] = 4
-    TT_Sim['battery']['cellAh'] = 10*38.0/40.0  # -0.28
+    TT_Sim['battery']['cellAh'] = 10  # -0.28
     TT_Sim['battery']['cellVnom'] = 3.7
     TT_Sim['battery']['cellIR'] = 0.00438
     TT_Sim['battery']['E_density'] = 3.7 * 6 * 40 / 4.8  # 3.7*8/0.175
@@ -150,7 +150,7 @@ if track == 'TT':
         TT_Sim['Vdc_sim'] = sim.Vdc_sim
 
     variables_list = {
-        'P_max': np.arange(110, 200, 5) * 1e3,
+        'P_max': np.arange(110, 200, 20) * 1e3,
         #'T_max': np.arange(180, 300, 10),
         'T_max': np.arange(260, 300, 10),
         # 'n0': range(42, 84, 41),
@@ -158,7 +158,7 @@ if track == 'TT':
         'v_max': np.arange(148, 181, 1) / 2.23,
         # 'parallel': np.arange(4.5, 7, 0.5),
         # 'series': np.arange(141, 183, 3)
-        'series': np.arange(162, 165, 3),
+        #'series': np.arange(162, 165, 3),
         # 'L_core': range(100, 525, 25),
         # 'L_core': np.arange(150, 200, 25),
         # 'turns': np.arange(8.5, 16.5, 2),
