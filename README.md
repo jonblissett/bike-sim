@@ -8,7 +8,7 @@ Use Python2.7, requires the following packages:
 matplotlib, numpy, scipy, cython, ipyparallel
 
 Commonnly used python functions are compiled in C using Cython for speed. These .pyx files must first be compiled 
-with Cython uing the following commands:
+with Cython by executing the following commands, or the shell script "compile_cython.sh":
 
 ```sh
 python2.7 Cythonise_bike_fcn.py build_ext --inplace
