@@ -37,10 +37,15 @@ import motorbike_functions as bike
 
 verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
+<<<<<<< HEAD
 enable_plotting = True
 enable_parallel = False  # ipcluster start -n 4
+=======
+enable_plotting = False
+enable_parallel = True  # ipcluster start -n 4
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
 save_data_files = True
-dummy_run = True
+dummy_run = False
 calibration_mode = False
 optimise_ratio = False
 battery_fixed = False
@@ -61,7 +66,11 @@ if enable_plotting:
         pass
 
 
+<<<<<<< HEAD
 parallel_queue = 1200
+=======
+parallel_queue = 600
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
 
 # Model bike mechanical specifications
 #  Model Brake characteristic
@@ -92,9 +101,14 @@ if track == 'TT':
     end_dist = 60.7e3  # Distance at lap end for timing
 
     # Export parameters
+<<<<<<< HEAD
     # filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
     # filename_exp = 'data_export/TT2018/TT18_practice1_postcal.mat'
     filename_exp = 'data_export/TT2018/TT18_prerace_first.mat'
+=======
+    filename_exp = 'data_export/Python_Sims_FW_TT_2018.mat'
+    # filename_exp = 'data_export/TT_Sevcon_N_22_5/Python_Sims_FW_TT_2018_vlowVel.mat'
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
     # filename_exp = 'data_export/TT_SpeedLimits/Python_Sims_FW_TT_SpeedLimit_' + str(int(2.23*course_speed_limit)) + 'mph.mat'
     # filename_exp = 'data_export/18s16p_P_T_9_various_Mr25/Python_Sim_' + motor_manufacturer + '_motor_power_varied_mph_Mr25_regen.mat'
 
@@ -138,7 +152,11 @@ if track == 'TT':
     TT_Sim['scrutineering'] = {'score': 0.0, 'weight_limit': 305.0, 'volt_limit': 800.0}
     TT_Sim['battery']['series'] = 171
     TT_Sim['battery']['parallel'] = 4
+<<<<<<< HEAD
     TT_Sim['battery']['cellAh'] = 10#*38.0/40.0  # -0.28
+=======
+    TT_Sim['battery']['cellAh'] = 10  # -0.28
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
     TT_Sim['battery']['cellVnom'] = 3.7
     TT_Sim['battery']['cellIR'] = 0.00438
     TT_Sim['battery']['E_density'] = 3.7 * 6 * 40 / 4.8  # 3.7*8/0.175
@@ -151,7 +169,11 @@ if track == 'TT':
         TT_Sim['Vdc_sim'] = sim.Vdc_sim
 
     variables_list = {
+<<<<<<< HEAD
         'P_max': np.arange(110, 200, 2.5) * 1e3,
+=======
+        'P_max': np.arange(110, 200, 20) * 1e3,
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
         #'T_max': np.arange(180, 300, 10),
         'T_max': np.arange(200, 260, 2.5),
         # 'n0': range(42, 84, 41),
@@ -159,7 +181,11 @@ if track == 'TT':
         'v_max': np.arange(145, 181, 1) / 2.23,
         # 'parallel': np.arange(4.5, 7, 0.5),
         # 'series': np.arange(141, 183, 3)
+<<<<<<< HEAD
         'series': np.arange(171, 177, 3),
+=======
+        #'series': np.arange(162, 165, 3),
+>>>>>>> e4af493960d11981da7e8c4415c3dc3d984375e5
         # 'L_core': range(100, 525, 25),
         # 'L_core': np.arange(150, 200, 25),
         # 'turns': np.arange(8.5, 16.5, 2),
