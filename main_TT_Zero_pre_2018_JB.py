@@ -37,7 +37,7 @@ import motorbike_functions as bike
 
 verbosity = 1  # 0, no print, 1, final stats, 2, per corner stats and warnings, 3 everything
 enable_warnings = False
-enable_plotting = True
+enable_plotting = False
 enable_parallel = False  # ipcluster start -n 4
 save_data_files = True
 dummy_run = True
@@ -50,7 +50,7 @@ igbt = 'FS450'  # 'FF600'  # 'SEMiX603_SiC'
 
 course_speed_limit = 2*155 / 2.23 # 166 / 2.23
 
-track = 'Drag'
+track = 'TT'
 
 if enable_plotting:
     try:
@@ -67,7 +67,7 @@ parallel_queue = 100
 #  - Regenerative torque limit
 #  - Braking co-efficient, relating braking torque to w
 TT_Sim = {'N': ([83.0, 20.0]),
-          'constants': {'cd': 0.35*0.8, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
+          'constants': {'cd': 0.35*0.9, 'area': 1, 'rho': 1.204, 'm': 290.0 + 90, 'p_tyre': 1.9,
                         'r': 2.16 / 2 / np.pi, 'b': 1.41 * 0.54, 'h': 0.56, 'k_tyre': 0.7, 'mu_tyre': 1.2},
           'J': {'wheel': 1.35 - 0.445, 'motor': 0.0233},
           'brake': {'RampTime': 1.6, 'PeakTorque': 830.0, 'LimitTorque': 300.0, 'k_wt': 0},
@@ -377,7 +377,7 @@ TT_Sim = bike.set_speed_limit(TT_Sim, TT_Sim['v_max'])
 
 TT_Sim['motor']['T_max'] = 257  #  bike.motor_torque(TT_Sim['motor']['co'], 400*1.4146) # *171/114)  # TT_Sim['motor']['T_pk']
 print('Motor torque = ' + str(TT_Sim['motor']['T_max']) + ' Nm')
-TT_Sim['motor']['P_max'] = 180e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
+TT_Sim['motor']['P_max'] = 140e3  # TT_Sim['motor']['P_pk'] * 0.99  # *0.66
 [TT_Sim['motor']['w'], TT_Sim['motor']['t'], TT_Sim['motor']['p']] = bike.motor_torque_speed(TT_Sim['motor']['T_max'],
                                                                                              TT_Sim['motor']['W_speed_lim'],
                                                                                              TT_Sim['motor']['P_max'],
@@ -606,7 +606,7 @@ else:
     if save_data_files:
         if path.exists(filename_exp):
             remove(filename_exp)
-        rename('temp.mat', filename_exp)
+            rename('temp.mat', filename_exp)
         if verbosity > 0:
             print('Simulation saved to ' + str(filename_exp) + ' as structure named ' + str(structure_exp))
     else:
