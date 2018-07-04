@@ -1022,7 +1022,7 @@ def corner_sim_single_fw(c, locsmin, v, dt, ramp, Course_map, Ref_Race, TT_Sim, 
         #                 corner_index.size)  # as previous but flipped
 
         # print('dtB = ', str(t[1] - t[0]))
-        t = Ref_Race.t[int(corner_index[-1])] + np.linspace(0, 3 * dt_b * (1 - corner_index.size), 5 * corner_index.size)
+        t = Ref_Race.t[int(corner_index[-1])] + np.linspace(0, 3.5 * dt_b * (1 - corner_index.size), 5 * corner_index.size)
         dt_b = t[0] - t[1]
         # print('dtB = ', dt_b)
 
@@ -1474,8 +1474,8 @@ def wheelie_torque_limit(TT_Sim, R, V):
 
 def set_speed_limit(TT_Sim, course_speed_limit):
     w_max = course_speed_limit * TT_Sim['N'][0] / TT_Sim['N'][1] / TT_Sim['constants']['r']
-    TT_Sim['motor']['W_speed_lim'] = 0.99 * w_max
-    TT_Sim['motor']['W_lim'] = TT_Sim['motor']['W_speed_lim'] * 1.01  # 8400 / 30 * np.pi
+    TT_Sim['motor']['W_speed_lim'] = 0.98 * w_max
+    TT_Sim['motor']['W_lim'] = TT_Sim['motor']['W_speed_lim'] * 1.02  # 8400 / 30 * np.pi
     return TT_Sim
 
 
